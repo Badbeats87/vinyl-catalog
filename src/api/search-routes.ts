@@ -155,6 +155,7 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
 
         return {
           id: `disc-${item.id}`,
+          discogsId: item.id,
           title: albumTitle,
           artist: artist,
           year: item.year ? parseInt(item.year) : null,
