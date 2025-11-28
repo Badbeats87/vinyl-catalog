@@ -118,6 +118,9 @@ export default function AdminDashboard() {
   const [newPolicyName, setNewPolicyName] = useState('');
   const [newBuyPercentage, setNewBuyPercentage] = useState(55);
   const [newSellPercentage, setNewSellPercentage] = useState(125);
+  const [policyLoading, setPolicyLoading] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<PricingPolicy | null>(null);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   const [analytics, setAnalytics] = useState<AnalyticStats>({
     inventoryValue: 0,
@@ -278,6 +281,98 @@ export default function AdminDashboard() {
     setSubmissions((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: 'rejected' as const } : s))
     );
+  };
+
+  const handleCreatePolicy = async () => {
+    if (!newPolicyName.trim()) {
+      alert('Please enter a strategy name');
+      return;
+    }
+    setPolicyLoading(true);
+    try {
+      const res = await fetch('/api/pricing/policies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPolicyName,
+          buyPercentage: newBuyPercentage / 100,
+          sellPercentage: newSellPercentage / 100,
+          description: `Buy at ${newBuyPercentage}% of market price, Sell at ${newSellPercentage}% of market price`,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPolicies([data.policy, ...policies]);
+        setNewPolicyName('');
+        setNewBuyPercentage(55);
+        setNewSellPercentage(125);
+        alert('Strategy created successfully!');
+      } else {
+        alert(data.error || 'Failed to create strategy');
+      }
+    } catch (err) {
+      console.error('Error creating policy:', err);
+      alert('Failed to create strategy');
+    } finally {
+      setPolicyLoading(false);
+    }
+  };
+
+  const handleEditPolicy = async () => {
+    if (!editingPolicy) return;
+    setPolicyLoading(true);
+    try {
+      const res = await fetch(`/api/pricing/policies/${editingPolicy.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingPolicy.name,
+          buyPercentage: newBuyPercentage / 100,
+          sellPercentage: newSellPercentage / 100,
+          description: `Buy at ${newBuyPercentage}% of market price, Sell at ${newSellPercentage}% of market price`,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPolicies(policies.map(p => p.id === editingPolicy.id ? data.policy : p));
+        setEditingPolicy(null);
+        setShowPolicyModal(false);
+        alert('Strategy updated successfully!');
+      } else {
+        alert(data.error || 'Failed to update strategy');
+      }
+    } catch (err) {
+      console.error('Error updating policy:', err);
+      alert('Failed to update strategy');
+    } finally {
+      setPolicyLoading(false);
+    }
+  };
+
+  const handleDeletePolicy = async (policyId: string) => {
+    if (!confirm('Are you sure you want to delete this strategy?')) return;
+    try {
+      const res = await fetch(`/api/pricing/policies/${policyId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPolicies(policies.filter(p => p.id !== policyId));
+        alert('Strategy deleted successfully!');
+      } else {
+        alert(data.error || 'Failed to delete strategy');
+      }
+    } catch (err) {
+      console.error('Error deleting policy:', err);
+      alert('Failed to delete strategy');
+    }
+  };
+
+  const handleOpenEditModal = (policy: PricingPolicy) => {
+    setEditingPolicy(policy);
+    setNewBuyPercentage(Math.round(policy.buyPercentage * 100));
+    setNewSellPercentage(Math.round(policy.sellPercentage * 100));
+    setShowPolicyModal(true);
   };
 
   const pendingCount = submissions.filter((s) => s.status === 'pending').length;
@@ -914,8 +1009,11 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <button className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 rounded font-bold transition">
-                  Create Strategy
+                <button
+                  onClick={handleCreatePolicy}
+                  disabled={policyLoading}
+                  className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-bold transition">
+                  {policyLoading ? 'Creating...' : 'Create Strategy'}
                 </button>
               </div>
             </div>
@@ -923,21 +1021,108 @@ export default function AdminDashboard() {
             {/* Existing Policies */}
             {policies.length > 0 && (
               <div className="bg-gray-800 rounded-lg p-8">
-                <h3 className="text-xl font-bold mb-4">Active Strategies</h3>
+                <h3 className="text-xl font-bold mb-6">Saved Strategies</h3>
                 <div className="space-y-3">
                   {policies.map((policy) => (
-                    <div key={policy.id} className="bg-gray-700 p-4 rounded border border-gray-600">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-bold">{policy.name}</h4>
-                          <p className="text-sm text-gray-400">
-                            Buy: {policy.buyPercentage}% | Sell: {policy.sellPercentage}%
-                          </p>
+                    <div key={policy.id} className="bg-gray-700 hover:bg-gray-650 p-4 rounded border border-gray-600 transition">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="font-bold text-lg mb-2">{policy.name}</h4>
+                          <div className="grid grid-cols-2 gap-4 mb-2">
+                            <div>
+                              <p className="text-gray-400 text-xs uppercase">Buy Strategy</p>
+                              <p className="text-green-400 font-semibold">{Math.round(policy.buyPercentage * 100)}% of Market Price</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-xs uppercase">Sell Strategy</p>
+                              <p className="text-blue-400 font-semibold">{Math.round(policy.sellPercentage * 100)}% of Market Price</p>
+                            </div>
+                          </div>
                         </div>
-                        <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm">Edit</button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleOpenEditModal(policy)}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold transition">
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeletePolicy(policy.id)}
+                            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold transition">
+                            🗑️ Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Edit Policy Modal */}
+            {showPolicyModal && editingPolicy && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-gray-800 rounded-lg max-w-lg w-full border border-gray-700 p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-2xl font-bold text-green-400">Edit Strategy</h3>
+                    <button
+                      onClick={() => setShowPolicyModal(false)}
+                      className="text-gray-400 hover:text-white text-2xl leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Strategy Name</label>
+                      <input
+                        type="text"
+                        value={editingPolicy.name}
+                        onChange={(e) => setEditingPolicy({...editingPolicy, name: e.target.value})}
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Buy Percentage (%)</label>
+                        <input
+                          type="number"
+                          value={newBuyPercentage}
+                          onChange={(e) => setNewBuyPercentage(parseInt(e.target.value) || 0)}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Offer price = Market price × {newBuyPercentage}%</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Sell Percentage (%)</label>
+                        <input
+                          type="number"
+                          value={newSellPercentage}
+                          onChange={(e) => setNewSellPercentage(parseInt(e.target.value) || 0)}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">List price = Market price × {newSellPercentage}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowPolicyModal(false)}
+                      className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-semibold transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleEditPolicy}
+                      disabled={policyLoading}
+                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded font-semibold transition"
+                    >
+                      {policyLoading ? 'Updating...' : 'Update Strategy'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

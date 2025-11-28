@@ -109,6 +109,21 @@ router.put('/policies/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Delete pricing policy
+router.delete('/policies/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const policy = await prisma.pricingPolicy.delete({
+      where: { id },
+    });
+
+    res.json({ success: true, message: 'Policy deleted', policy });
+  } catch (err) {
+    res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
 // Calculate price using a policy
 router.post('/calculate', async (req: Request, res: Response): Promise<void> => {
   try {
