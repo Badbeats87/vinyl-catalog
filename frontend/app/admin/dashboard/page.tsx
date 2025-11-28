@@ -985,27 +985,53 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Buy Percentage (%)</label>
-                    <input
-                      type="number"
-                      value={newBuyPercentage}
-                      onChange={(e) => setNewBuyPercentage(parseInt(e.target.value))}
-                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
-                      placeholder="55"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Offer price = Market price × {newBuyPercentage}%</p>
+                    <label className="block text-sm font-semibold mb-2">Buy Strategy</label>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-gray-400">Base Price</label>
+                        <select className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                          <option>Lowest</option>
+                          <option>Median</option>
+                          <option>Highest</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400">Buy Percentage (%)</label>
+                        <input
+                          type="number"
+                          value={newBuyPercentage}
+                          onChange={(e) => setNewBuyPercentage(parseInt(e.target.value))}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                          placeholder="55"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">Offer price = Market price × {newBuyPercentage}%</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Sell Percentage (%)</label>
-                    <input
-                      type="number"
-                      value={newSellPercentage}
-                      onChange={(e) => setNewSellPercentage(parseInt(e.target.value))}
-                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
-                      placeholder="125"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">List price = Market price × {newSellPercentage}%</p>
+                    <label className="block text-sm font-semibold mb-2">Sell Strategy</label>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-gray-400">Base Price</label>
+                        <select className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                          <option>Lowest</option>
+                          <option>Median</option>
+                          <option>Highest</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400">Sell Percentage (%)</label>
+                        <input
+                          type="number"
+                          value={newSellPercentage}
+                          onChange={(e) => setNewSellPercentage(parseInt(e.target.value))}
+                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                          placeholder="125"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">List price = Market price × {newSellPercentage}%</p>
                   </div>
                 </div>
 
