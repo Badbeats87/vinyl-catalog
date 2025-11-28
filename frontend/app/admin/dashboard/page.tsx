@@ -198,7 +198,7 @@ export default function AdminDashboard() {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery, filters, currency }),
+        body: JSON.stringify({ query: searchQuery, filters, currency, deduplicateByMaster: false }),
       });
       const data = await res.json();
       if (data.success && data.results) {

@@ -10,7 +10,7 @@ const DISCOGS_API_URL = 'https://api.discogs.com';
 // Search Discogs API for vinyl releases
 router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { query, page = 1, currency = 'USD' } = req.body;
+    const { query, page = 1, currency = 'USD', deduplicateByMaster = true } = req.body;
     if (!query) {
       res.json({ success: false, error: 'Search query required' });
       return;
@@ -36,20 +36,23 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
     });
 
     // Transform Discogs results to our format with marketplace pricing
-    // First, deduplicate by master_id to avoid showing same release multiple times
-    const seenMasterIds = new Set<number>();
-    const uniqueResults = response.data.results.filter((item: any) => {
-      if (item.master_id) {
-        if (seenMasterIds.has(item.master_id)) {
-          return false; // Skip duplicate master
+    // Optionally deduplicate by master_id (for sellers) or show all releases (for admins)
+    let resultsToProcess = response.data.results;
+    if (deduplicateByMaster) {
+      const seenMasterIds = new Set<number>();
+      resultsToProcess = response.data.results.filter((item: any) => {
+        if (item.master_id) {
+          if (seenMasterIds.has(item.master_id)) {
+            return false; // Skip duplicate master
+          }
+          seenMasterIds.add(item.master_id);
         }
-        seenMasterIds.add(item.master_id);
-      }
-      return true;
-    });
+        return true;
+      });
+    }
 
     const results = await Promise.all(
-      uniqueResults.map(async (item: any) => {
+      resultsToProcess.map(async (item: any) => {
         // Better artist/title parsing
         const titleParts = item.title?.split(' - ') || [];
         let artist = 'Various Artists';
