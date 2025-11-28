@@ -1,0 +1,204 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core catalog entity - represents a vinyl release
+model Release {
+  id              String   @id @default(cuid())
+  title           String   @db.VarChar(255)
+  artist          String   @db.VarChar(255)
+  label           String?  @db.VarChar(255)
+  catalogNumber   String?  @db.VarChar(100)
+  barcode         String?  @db.VarChar(20)
+  releaseYear     Int?
+  genre           String?  @db.VarChar(100)
+  coverArtUrl     String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  marketSnapshots MarketSnapshot[]
+  submissionItems SubmissionItem[]
+  inventoryLots   InventoryLot[]
+
+  @@index([barcode])
+  @@index([artist, title])
+  @@index([genre])
+  @@fulltext([artist, title]) // MySQL/PostgreSQL full-text search support
+}
+
+// Market data snapshot from Discogs/eBay
+model MarketSnapshot {
+  id        String   @id @default(cuid())
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  source    String   @db.VarChar(50) // "discogs" or "ebay"
+  statLow   Float?   // Lowest price seen
+  statMedian Float?  // Median/average price
+  statHigh  Float?   // Highest price seen
+  fetchedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([releaseId, source])
+  @@index([releaseId])
+  @@index([source])
+  @@index([fetchedAt])
+}
+
+// Condition tier reference data (read-only, seeded at init)
+model ConditionTier {
+  id       String @id @default(cuid())
+  name     String @unique @db.VarChar(50) // "Mint", "NM", "VG+", "VG", "VG-", "G"
+  order    Int    @unique // 1-6 for sorting
+  mediaAdjustment   Float  // e.g., 1.10 for Mint (110% of baseline)
+  sleeveAdjustment  Float  // e.g., 1.10 for Mint sleeve
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+// Admin-configurable pricing rules
+model PricingPolicy {
+  id             String   @id @default(cuid())
+  name           String   @db.VarChar(255)
+  description    String?  @db.Text
+  scope          String   @db.VarChar(50) // "global", "genre", "release"
+  scopeValue     String?  @db.VarChar(255) // genre name or release_id if scope-specific
+
+  // Buy formula parameters
+  buyMarketSource String   @db.VarChar(50) @default("discogs") // "discogs", "ebay", "hybrid"
+  buyMarketStat   String   @db.VarChar(50) @default("median") // "low", "median", "high"
+  buyPercentage   Float    @default(0.55) // 55% of market for offers
+  buyMinCap       Float?   // Minimum offer price
+  buyMaxCap       Float?   // Maximum offer price
+  offerExpiryDays Int      @default(7) // How long offers are valid
+
+  // Sell formula parameters
+  sellMarketSource String  @db.VarChar(50) @default("discogs") // "discogs", "ebay", "hybrid"
+  sellMarketStat  String   @db.VarChar(50) @default("median") // "low", "median", "high"
+  sellPercentage  Float    @default(1.25) // 125% of market for list prices
+  sellMinCap      Float?   // Minimum list price
+  sellMaxCap      Float?   // Maximum list price
+
+  // Condition curve application
+  applyConditionAdjustment Boolean @default(true)
+  mediaWeight     Float    @default(0.5) // Media vs. sleeve split (50/50)
+  sleeveWeight    Float    @default(0.5)
+
+  // Rounding
+  roundingIncrement Float  @default(0.25) // Round to nearest $0.25
+
+  // Admin overrides & special rules
+  requiresManualReview Boolean @default(false) // Flag for missing data
+  profitMarginTarget Float?  // e.g., 0.40 for 40% margin target
+
+  isActive         Boolean  @default(true)
+  version          Int      @default(1) // Track policy versions for audit trail
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([scope, scopeValue])
+  @@index([isActive])
+}
+
+// Seller submission (incoming offer request)
+model SellerSubmission {
+  id              String   @id @default(cuid())
+  submissionNumber String   @unique // Human-readable identifier
+  sellerEmail     String   @db.VarChar(255)
+  sellerPhone     String?  @db.VarChar(20)
+
+  status          String   @db.VarChar(50) @default("pending_review")
+  // Status values: pending_review, accepted, rejected, counter_offered, payment_sent, expired
+
+  notes           String?  @db.Text
+  photosUrl       String?  @db.Text // JSON array of URLs
+
+  expectedPayout  Float?   // Calculated sum of offers
+  actualPayout    Float?   // After admin acceptance
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime // Offer expiry date
+
+  // Relations
+  items           SubmissionItem[]
+
+  @@index([status])
+  @@index([sellerEmail])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// Line items in a seller submission
+model SubmissionItem {
+  id              String   @id @default(cuid())
+  submissionId    String
+  submission      SellerSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  releaseId       String
+  release         Release  @relation(fields: [releaseId], references: [id], onDelete: Restrict)
+
+  quantity        Int      @default(1)
+  sellerConditionMedia  String  @db.VarChar(50)   // "Mint", "NM", etc.
+  sellerConditionSleeve String  @db.VarChar(50)   // "Mint", "NM", etc.
+
+  autoOfferPrice  Float    // Calculated based on pricing policy
+  itemNotes       String?  @db.Text
+
+  status          String   @db.VarChar(50) @default("pending")
+  // Status: pending, accepted, rejected, counter_offered, received_and_inspected, finalized
+
+  finalConditionMedia  String?  @db.VarChar(50)  // After inspection
+  finalConditionSleeve String?  @db.VarChar(50)
+  finalOfferPrice Float?   // After any admin adjustment
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([submissionId])
+  @@index([releaseId])
+  @@index([status])
+}
+
+// Inventory lot ready for sale
+model InventoryLot {
+  id              String   @id @default(cuid())
+  lotNumber       String   @unique // Human-readable identifier
+  releaseId       String
+  release         Release  @relation(fields: [releaseId], references: [id], onDelete: Restrict)
+
+  conditionMedia  String   @db.VarChar(50)
+  conditionSleeve String   @db.VarChar(50)
+
+  costBasis       Float    // What we paid for it
+  listPrice       Float    // What we're selling it for
+  channel         String   @db.VarChar(50) // "web", "store_walkIn", etc.
+
+  status          String   @db.VarChar(50) @default("draft")
+  // Status: draft, live, reserved, sold, returned, damaged
+
+  quantity        Int      @default(1)
+  availableQuantity Int   @default(1) // Decremented when reserved
+
+  internalNotes   String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  listedAt        DateTime? // When it went live
+
+  @@index([releaseId])
+  @@index([status])
+  @@index([channel])
+  @@index([listPrice])
+}
