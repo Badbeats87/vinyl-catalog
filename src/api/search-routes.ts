@@ -93,6 +93,9 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
               ? parseFloat(statsResponse.data.median_price)
               : statsResponse.data.median_price;
             price = parseFloat(medianPrice.toFixed(2));
+            console.log(`✓ Pricing found for ${item.id}: $${price}`);
+          } else {
+            console.log(`ℹ No median price for release ${item.id} - may have no marketplace listings`);
           }
           if (statsResponse.data?.lowest_price) {
             // Store lowest price info for condition display
