@@ -44,6 +44,32 @@ export async function sendCounterOfferNotification(to, submissionNumber, itemTit
     return sendEmail(emailData);
 }
 /**
+ * Send order confirmation email to buyer
+ */
+export async function sendOrderConfirmation(buyerEmail, orderNumber, total, items) {
+    const emailData = {
+        to: buyerEmail,
+        subject: `Order Confirmed - ${orderNumber}`,
+        body: formatOrderConfirmationText(orderNumber, total, items),
+        htmlBody: formatOrderConfirmationHtml(orderNumber, total, items),
+        type: 'order_confirmation',
+    };
+    return sendEmail(emailData);
+}
+/**
+ * Send order shipped notification to buyer
+ */
+export async function sendOrderShipped(buyerEmail, orderNumber, trackingNumber) {
+    const emailData = {
+        to: buyerEmail,
+        subject: `Your Order Has Shipped - ${orderNumber}`,
+        body: formatOrderShippedText(orderNumber, trackingNumber),
+        htmlBody: formatOrderShippedHtml(orderNumber, trackingNumber),
+        type: 'order_shipped',
+    };
+    return sendEmail(emailData);
+}
+/**
  * Main email sending function
  * In production, this would integrate with SendGrid, Nodemailer, AWS SES, etc.
  */
@@ -309,6 +335,183 @@ function formatCounterOfferHtml(submissionNumber, artist, title, newPrice, quant
       <p>If you have any questions about the counter-offer, please reply to this email.</p>
 
       <p>Best regards,<br>The Vinyl Records Team</p>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Vinyl Records. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+/**
+ * Format order confirmation as plain text
+ */
+function formatOrderConfirmationText(orderNumber, total, items) {
+    const itemsList = items
+        .map((item) => `${item.name}
+   Quantity: ${item.quantity}
+   Price: $${item.price.toFixed(2)}`)
+        .join('\n\n');
+    return `Dear Buyer,
+
+Thank you for your purchase! We've received your order and your payment is being processed.
+
+Order Details:
+Order Number: ${orderNumber}
+Order Date: ${new Date().toLocaleDateString()}
+Order Total: $${total.toFixed(2)}
+
+Items Ordered:
+${itemsList}
+
+Your order is pending PayPal confirmation. Once payment is confirmed, you'll receive a shipping confirmation with tracking information.
+
+You can track your order status at any time using your order number: ${orderNumber}
+
+If you have any questions, please reply to this email or contact our support team.
+
+Best regards,
+The Vinyl Records Store`;
+}
+/**
+ * Format order confirmation as HTML
+ */
+function formatOrderConfirmationHtml(orderNumber, total, items) {
+    const itemsHtml = items
+        .map((item) => `
+    <tr>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.name}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">$${item.price.toFixed(2)}</td>
+    </tr>
+  `)
+        .join('');
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #1976D2; color: white; padding: 20px; text-align: center; }
+    .content { background-color: #f9f9f9; padding: 20px; border-radius: 4px; }
+    .item-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .item-table th { background-color: #1976D2; color: white; padding: 10px; text-align: left; }
+    .summary { background-color: white; padding: 15px; border-left: 4px solid #1976D2; margin: 20px 0; }
+    .total-row { font-weight: bold; font-size: 18px; color: #1976D2; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Order Confirmed!</h2>
+    </div>
+    <div class="content">
+      <p>Dear Buyer,</p>
+      <p>Thank you for your purchase! We've received your order and your payment is being processed.</p>
+
+      <div class="summary">
+        <p><strong>Order Number:</strong> ${orderNumber}</p>
+        <p><strong>Order Date:</strong> ${new Date().toLocaleDateString()}</p>
+        <p><strong>Order Total:</strong> <strong>$${total.toFixed(2)}</strong></p>
+      </div>
+
+      <h3>Items Ordered:</h3>
+      <table class="item-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+          <tr>
+            <td colspan="2" style="padding: 12px; text-align: right; border-top: 2px solid #1976D2;" class="total-row">Total:</td>
+            <td style="padding: 12px; text-align: right; border-top: 2px solid #1976D2;" class="total-row">$${total.toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Your order is pending PayPal confirmation. Once payment is confirmed, you'll receive a shipping confirmation with tracking information.</p>
+      <p>You can track your order status at any time using your order number: <strong>${orderNumber}</strong></p>
+      <p>If you have any questions, please reply to this email or contact our support team.</p>
+
+      <p>Best regards,<br>The Vinyl Records Store</p>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Vinyl Records. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+/**
+ * Format order shipped as plain text
+ */
+function formatOrderShippedText(orderNumber, trackingNumber) {
+    return `Dear Buyer,
+
+Great news! Your order (${orderNumber}) has been shipped and is on its way to you.
+
+Order Number: ${orderNumber}
+Tracking Number: ${trackingNumber}
+
+You can track your shipment at: [Insert carrier tracking URL]
+
+Expected delivery: 3-7 business days
+
+If you have any questions about your shipment, please reply to this email or contact our support team.
+
+Best regards,
+The Vinyl Records Store`;
+}
+/**
+ * Format order shipped as HTML
+ */
+function formatOrderShippedHtml(orderNumber, trackingNumber) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
+    .content { background-color: #f9f9f9; padding: 20px; border-radius: 4px; }
+    .tracking-box { background-color: white; padding: 20px; border-left: 4px solid #4CAF50; margin: 20px 0; }
+    .tracking-label { font-weight: bold; color: #666; margin-top: 15px; }
+    .tracking-value { font-size: 18px; color: #333; margin-top: 5px; font-family: monospace; }
+    .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Your Order Has Shipped!</h2>
+    </div>
+    <div class="content">
+      <p>Dear Buyer,</p>
+      <p>Great news! Your order has been shipped and is on its way to you.</p>
+
+      <div class="tracking-box">
+        <div class="tracking-label">Order Number:</div>
+        <div class="tracking-value">${orderNumber}</div>
+
+        <div class="tracking-label">Tracking Number:</div>
+        <div class="tracking-value">${trackingNumber}</div>
+
+        <p style="margin-top: 20px; color: #666;">
+          <strong>Expected delivery:</strong> 3-7 business days
+        </p>
+      </div>
+
+      <p>You can track your shipment using the tracking number above.</p>
+      <p>If you have any questions about your shipment, please reply to this email or contact our support team.</p>
+
+      <p>Best regards,<br>The Vinyl Records Store</p>
     </div>
     <div class="footer">
       <p>&copy; ${new Date().getFullYear()} Vinyl Records. All rights reserved.</p>

@@ -108,8 +108,8 @@ export declare function updateSubmissionStatus(submissionId: string, status: str
  * Get all condition tiers for frontend
  */
 export declare function getConditionTiers(): Promise<{
-    name: string;
     id: string;
+    name: string;
     createdAt: Date;
     updatedAt: Date;
     order: number;

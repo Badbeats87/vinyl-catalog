@@ -367,4 +367,199 @@ export async function getInventoryMetricsRoute() {
         };
     }
 }
+/**
+ * List buyer orders with filters for admin dashboard
+ */
+export async function listBuyerOrders(status, paymentStatus, limit, offset) {
+    try {
+        const { prisma } = await import('../db/client');
+        const whereClause = {};
+        if (status)
+            whereClause.status = status;
+        if (paymentStatus)
+            whereClause.paymentStatus = paymentStatus;
+        const total = await prisma.buyerOrder.count({ where: whereClause });
+        const orders = await prisma.buyerOrder.findMany({
+            where: whereClause,
+            include: {
+                buyer: {
+                    select: {
+                        email: true,
+                        name: true,
+                        phone: true,
+                    },
+                },
+                items: {
+                    include: {
+                        lot: {
+                            include: {
+                                release: {
+                                    select: {
+                                        title: true,
+                                        artist: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: Math.min(limit || 20, 100),
+            skip: offset || 0,
+        });
+        return {
+            success: true,
+            data: {
+                orders,
+                total,
+            },
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'LIST_ORDERS_ERROR',
+                message: 'Failed to list buyer orders',
+            },
+        };
+    }
+}
+/**
+ * Get order detail for admin
+ */
+export async function getBuyerOrderDetail(orderId) {
+    try {
+        if (!orderId) {
+            throw new ValidationError('Order ID is required');
+        }
+        const { prisma } = await import('../db/client');
+        const order = await prisma.buyerOrder.findUnique({
+            where: { id: orderId },
+            include: {
+                buyer: true,
+                items: {
+                    include: {
+                        lot: {
+                            include: {
+                                release: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!order) {
+            return {
+                success: false,
+                error: {
+                    code: 'ORDER_NOT_FOUND',
+                    message: 'Order not found',
+                },
+            };
+        }
+        return {
+            success: true,
+            data: order,
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'GET_ORDER_ERROR',
+                message: error instanceof ValidationError ? error.message : 'Failed to get order',
+            },
+        };
+    }
+}
+/**
+ * Get sales reconciliation data - link lots to orders
+ */
+export async function getSalesReconciliation(startDate, endDate, limit, offset) {
+    try {
+        const { prisma } = await import('../db/client');
+        const whereClause = {
+            status: 'sold',
+        };
+        if (startDate || endDate) {
+            whereClause.updatedAt = {};
+            if (startDate)
+                whereClause.updatedAt.gte = new Date(startDate);
+            if (endDate)
+                whereClause.updatedAt.lte = new Date(endDate);
+        }
+        const total = await prisma.inventoryLot.count({ where: whereClause });
+        const lots = await prisma.inventoryLot.findMany({
+            where: whereClause,
+            include: {
+                release: {
+                    select: {
+                        title: true,
+                        artist: true,
+                    },
+                },
+                orderItems: {
+                    include: {
+                        order: {
+                            select: {
+                                id: true,
+                                orderNumber: true,
+                                buyer: {
+                                    select: {
+                                        email: true,
+                                        name: true,
+                                    },
+                                },
+                                paidAt: true,
+                                shippedAt: true,
+                                status: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: Math.min(limit || 20, 100),
+            skip: offset || 0,
+        });
+        // Format reconciliation data
+        const reconciliation = lots.map((lot) => ({
+            lotNumber: lot.lotNumber,
+            release: lot.release,
+            conditionMedia: lot.conditionMedia,
+            conditionSleeve: lot.conditionSleeve,
+            costBasis: lot.costBasis,
+            soldPrice: lot.listPrice,
+            profit: lot.listPrice - lot.costBasis,
+            quantity: lot.quantity,
+            soldAt: lot.updatedAt,
+            orders: lot.orderItems.map((oi) => ({
+                orderNumber: oi.order.orderNumber,
+                buyerEmail: oi.order.buyer.email,
+                buyerName: oi.order.buyer.name,
+                paidAt: oi.order.paidAt,
+                shippedAt: oi.order.shippedAt,
+                status: oi.order.status,
+            })),
+        }));
+        return {
+            success: true,
+            data: {
+                reconciliation,
+                total,
+            },
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'RECONCILIATION_ERROR',
+                message: 'Failed to get sales reconciliation',
+            },
+        };
+    }
+}
 //# sourceMappingURL=admin-routes.js.map

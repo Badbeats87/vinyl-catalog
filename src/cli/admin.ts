@@ -13,8 +13,6 @@ import {
   createPricingPolicy,
   getPricingPolicyById,
   getActivePolicies,
-  updatePricingPolicy,
-  deactivatePricingPolicy,
   countActivePolicies,
 } from '../services/pricing-policies';
 

@@ -634,7 +634,7 @@ export async function getSalesReconciliation(
             artist: true,
           },
         },
-        orders: {
+        orderItems: {
           include: {
             order: {
               select: {
@@ -670,7 +670,7 @@ export async function getSalesReconciliation(
       profit: lot.listPrice - lot.costBasis,
       quantity: lot.quantity,
       soldAt: lot.updatedAt,
-      orders: lot.orders.map((oi: any) => ({
+      orders: lot.orderItems.map((oi) => ({
         orderNumber: oi.order.orderNumber,
         buyerEmail: oi.order.buyer.email,
         buyerName: oi.order.buyer.name,

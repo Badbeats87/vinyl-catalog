@@ -27,7 +27,7 @@ async function main() {
   // 2. Seed default global pricing policy
   console.log('Seeding default global pricing policy...');
 
-  const defaultPolicy = await prisma.pricingPolicy.upsert({
+  await prisma.pricingPolicy.upsert({
     where: { id: 'default-global-policy' },
     update: {},
     create: {
@@ -70,6 +70,7 @@ async function main() {
       name: 'High-Value Bulk Policy',
       description: 'For large collections with average value >$20/item',
       scope: 'global',
+      scopeValue: null,
       buyPercentage: 0.60,
       buyMinCap: 5.0,
       sellPercentage: 1.20,
@@ -79,6 +80,7 @@ async function main() {
       name: 'Rare/Collectible Policy',
       description: 'For scarce releases requiring careful pricing',
       scope: 'global',
+      scopeValue: null,
       buyPercentage: 0.50,
       buyMarketStat: 'high',
       sellPercentage: 1.35,
@@ -90,6 +92,7 @@ async function main() {
       name: 'DJ/Used Policy',
       description: 'For worn records with lower condition expectations',
       scope: 'global',
+      scopeValue: null,
       buyPercentage: 0.45,
       buyMinCap: 0.25,
       sellPercentage: 1.10,

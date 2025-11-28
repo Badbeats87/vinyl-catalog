@@ -3,11 +3,11 @@
  * Handles seller workflows: search, quote generation, and submission management
  */
 
-import { Release, SellerSubmission, SubmissionItem } from '@prisma/client';
+import { Release, SellerSubmission } from '@prisma/client';
 import { prisma } from '../db/client';
 import { getFullPricingQuote } from './pricing';
 import { getPolicyForRelease } from './pricing-policies';
-import { validateSearchQuery, validateId, validateLimit, validateOffset, ValidationError } from '../validation/inputs';
+import { validateSearchQuery, validateLimit, ValidationError } from '../validation/inputs';
 import { sendSubmissionConfirmation } from './email';
 
 /**

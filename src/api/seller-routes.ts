@@ -16,9 +16,8 @@ import {
   QuoteResponse,
   SubmissionResponse,
   SubmissionDetail,
-  CreateSubmissionInput,
 } from '../services/seller-submissions';
-import { ValidationError, validateSearchQuery, validateEmail } from '../validation/inputs';
+import { ValidationError } from '../validation/inputs';
 
 /**
  * Standard API response wrapper
@@ -129,7 +128,7 @@ export async function generateQuotes(request: QuoteRequest): Promise<ApiResponse
     }
 
     const quotes = await generateQuotesForItems(request.items);
-    const totalPayout = quotes.reduce((sum, q) => q.totalOffer, 0);
+    const totalPayout = quotes.reduce((total, q) => total + q.totalOffer, 0);
 
     return {
       success: true,

@@ -84,7 +84,7 @@ export async function generateQuotes(request) {
             }
         }
         const quotes = await generateQuotesForItems(request.items);
-        const totalPayout = quotes.reduce((sum, q) => q.totalOffer, 0);
+        const totalPayout = quotes.reduce((total, q) => total + q.totalOffer, 0);
         return {
             success: true,
             data: {

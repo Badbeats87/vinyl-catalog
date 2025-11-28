@@ -209,7 +209,7 @@ model InventoryLot {
 
   // Relations
   cartItems       CartItem[]
-  orders          BuyerOrder[]
+  orderItems      OrderItem[]
 
   @@index([releaseId])
   @@index([status])

@@ -114,4 +114,16 @@ export declare function updateInventory(input: UpdateInventoryInput): Promise<Ap
  * Get inventory metrics
  */
 export declare function getInventoryMetricsRoute(): Promise<ApiResponse<any>>;
+/**
+ * List buyer orders with filters for admin dashboard
+ */
+export declare function listBuyerOrders(status?: string, paymentStatus?: string, limit?: number, offset?: number): Promise<ApiResponse<any>>;
+/**
+ * Get order detail for admin
+ */
+export declare function getBuyerOrderDetail(orderId: string): Promise<ApiResponse<any>>;
+/**
+ * Get sales reconciliation data - link lots to orders
+ */
+export declare function getSalesReconciliation(startDate?: string, endDate?: string, limit?: number, offset?: number): Promise<ApiResponse<any>>;
 //# sourceMappingURL=admin-routes.d.ts.map

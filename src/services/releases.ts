@@ -7,9 +7,7 @@ import {
   validateReleaseYear,
   validateUrl,
   validateSearchQuery,
-  validateId,
   validateLimit,
-  validateOffset,
 } from '../validation/inputs';
 
 export interface CreateReleaseInput {

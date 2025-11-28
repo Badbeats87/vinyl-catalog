@@ -86,8 +86,8 @@ export declare function getReleaseWithDetails(id: string): Promise<({
         listedAt: Date | null;
     }[];
 } & {
-    genre: string | null;
     id: string;
+    genre: string | null;
     createdAt: Date;
     updatedAt: Date;
     title: string;
