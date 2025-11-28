@@ -30,22 +30,29 @@ router.post('/discogs', async (req: Request, res: Response) => {
     });
 
     // Transform Discogs results to our format
-    const results = response.data.results.map((item: any) => ({
-      id: `disc-${item.id}`,
-      title: item.title,
-      artist: item.basic_information?.artists?.[0]?.name || 'Various Artists',
-      year: item.basic_information?.year || null,
-      label: item.basic_information?.labels?.[0]?.name || 'Unknown',
-      price: null, // Discogs API doesn't return prices
-      condition: null,
-      imageUrl: item.basic_information?.thumb || item.basic_information?.cover_image || 'https://via.placeholder.com/100?text=No+Image',
-      genre: item.basic_information?.genres?.join(', ') || 'Unknown',
-      format: item.basic_information?.formats?.map((f: any) => f.name).join(', ') || 'Vinyl',
-      rpm: item.basic_information?.formats?.[0]?.descriptions?.find((d: string) => d.includes('33')) ? 33 : 45,
-      pressType: 'Release',
-      catalog: item.basic_information?.labels?.[0]?.catno || 'N/A',
-      notes: item.basic_information?.formats?.map((f: any) => f.descriptions?.join(', ')).filter(Boolean).join('; ') || 'No additional info',
-    }));
+    const results = response.data.results.map((item: any) => {
+      // Parse artist from title (format: "Artist - Album Title")
+      const titleParts = item.title?.split(' - ') || [];
+      const artist = titleParts[0] || 'Various Artists';
+      const albumTitle = titleParts.slice(1).join(' - ') || item.title;
+
+      return {
+        id: `disc-${item.id}`,
+        title: albumTitle,
+        artist: artist,
+        year: item.year ? parseInt(item.year) : null,
+        label: Array.isArray(item.label) ? item.label[0] : item.label || 'Unknown',
+        price: null, // Discogs API doesn't return prices
+        condition: null,
+        imageUrl: item.thumb || 'https://via.placeholder.com/100?text=No+Image',
+        genre: Array.isArray(item.genre) ? item.genre.join(', ') : item.genre || 'Unknown',
+        format: Array.isArray(item.format) ? item.format.join(', ') : item.format || 'Vinyl',
+        rpm: Array.isArray(item.format) && item.format.some((f: string) => f.includes('33')) ? 33 : 45,
+        pressType: 'Release',
+        catalog: item.catno || 'N/A',
+        notes: `Format: ${Array.isArray(item.format) ? item.format.join(', ') : item.format}`,
+      };
+    });
 
     res.json({
       success: true,
