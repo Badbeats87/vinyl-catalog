@@ -420,65 +420,65 @@ export default function AdminDashboard() {
   const rejectedCount = submissions.filter((s) => s.status === 'rejected').length;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-gray-800 shadow">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-green-500">🔐 Admin Dashboard</h1>
-          <div className="flex gap-4 items-center">
-            <span className="text-sm text-gray-300">{user?.email}</span>
+      <header className="border-b border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+          <h1 className="text-2xl font-light tracking-tight text-gray-900">Admin</h1>
+          <div className="flex gap-6 items-center">
+            <span className="text-sm text-gray-600">{user?.email}</span>
             <button
               onClick={handleLogout}
-              className="text-gray-300 hover:text-white transition"
+              className="text-sm text-gray-600 hover:text-gray-900 transition"
             >
-              Logout
+              Log out
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6 border-b border-gray-700 overflow-x-auto">
+        <div className="flex gap-8 mb-12 border-b border-gray-200">
           <button
             onClick={() => setActiveTab('submissions')}
-            className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
+            className={`pb-4 text-sm font-medium transition ${
               activeTab === 'submissions'
-                ? 'text-green-500 border-b-2 border-green-500'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-gray-900 border-b-2 border-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            📋 Submissions
+            Submissions
           </button>
           <button
             onClick={() => setActiveTab('search')}
-            className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
+            className={`pb-4 text-sm font-medium transition ${
               activeTab === 'search'
-                ? 'text-green-500 border-b-2 border-green-500'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-gray-900 border-b-2 border-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            🔍 Search Records
+            Search
           </button>
           <button
             onClick={() => setActiveTab('pricing')}
-            className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
+            className={`pb-4 text-sm font-medium transition ${
               activeTab === 'pricing'
-                ? 'text-green-500 border-b-2 border-green-500'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-gray-900 border-b-2 border-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            💰 Pricing Strategy
+            Pricing
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
+            className={`pb-4 text-sm font-medium transition ${
               activeTab === 'analytics'
-                ? 'text-green-500 border-b-2 border-green-500'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-gray-900 border-b-2 border-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            📊 Analytics
+            Analytics
           </button>
         </div>
 
@@ -486,56 +486,53 @@ export default function AdminDashboard() {
         {activeTab === 'submissions' && (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Total Submissions</div>
-                <div className="text-3xl font-bold text-green-500">{submissions.length}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+              <div className="border border-gray-200 rounded-lg p-6">
+                <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Total</div>
+                <div className="text-3xl font-light text-gray-900">{submissions.length}</div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg border-l-4 border-yellow-500">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Pending Review</div>
-                <div className="text-3xl font-bold text-yellow-500">{pendingCount}</div>
+              <div className="border border-gray-200 rounded-lg p-6">
+                <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Pending</div>
+                <div className="text-3xl font-light text-gray-900">{pendingCount}</div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg border-l-4 border-green-500">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Approved</div>
-                <div className="text-3xl font-bold text-green-500">{approvedCount}</div>
+              <div className="border border-gray-200 rounded-lg p-6">
+                <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Approved</div>
+                <div className="text-3xl font-light text-gray-900">{approvedCount}</div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg border-l-4 border-red-500">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Rejected</div>
-                <div className="text-3xl font-bold text-red-500">{rejectedCount}</div>
+              <div className="border border-gray-200 rounded-lg p-6">
+                <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Rejected</div>
+                <div className="text-3xl font-light text-gray-900">{rejectedCount}</div>
               </div>
             </div>
 
             {/* Submissions Table */}
-            <div className="bg-gray-800 rounded-lg overflow-hidden">
-              <div className="p-6 border-b border-gray-700">
-                <h2 className="text-xl font-bold">Seller Submissions</h2>
-              </div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-700 border-b border-gray-600">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Seller</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Album</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Artist</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Submitted</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Seller</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Album</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Artist</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {submissions.map((submission) => (
-                    <tr key={submission.id} className="border-b border-gray-700 hover:bg-gray-750">
-                      <td className="px-6 py-4 text-sm">{submission.seller}</td>
-                      <td className="px-6 py-4">{submission.album}</td>
-                      <td className="px-6 py-4 text-gray-400">{submission.artist}</td>
-                      <td className="px-6 py-4 text-sm text-gray-400">{submission.submittedAt}</td>
+                    <tr key={submission.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                      <td className="px-6 py-4 text-sm text-gray-900">{submission.seller}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">{submission.album}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{submission.artist}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{submission.submittedAt}</td>
                       <td className="px-6 py-4">
                         <span
-                          className={`px-3 py-1 rounded text-xs font-semibold ${
+                          className={`px-2.5 py-1 rounded text-xs font-medium ${
                             submission.status === 'pending'
-                              ? 'bg-yellow-900 text-yellow-200'
+                              ? 'bg-yellow-50 text-yellow-700'
                               : submission.status === 'approved'
-                              ? 'bg-green-900 text-green-200'
-                              : 'bg-red-900 text-red-200'
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-red-50 text-red-700'
                           }`}
                         >
                           {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
@@ -543,24 +540,23 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {submission.status === 'pending' && (
-                          <div className="flex gap-2">
+                          <div className="flex gap-3">
                             <button
                               onClick={() => handleApprove(submission.id)}
-                              className="text-green-400 hover:text-green-300 font-semibold"
+                              className="text-green-600 hover:text-green-700 font-medium transition"
                             >
                               Approve
                             </button>
-                            <span className="text-gray-600">|</span>
                             <button
                               onClick={() => handleReject(submission.id)}
-                              className="text-red-400 hover:text-red-300 font-semibold"
+                              className="text-red-600 hover:text-red-700 font-medium transition"
                             >
                               Reject
                             </button>
                           </div>
                         )}
                         {submission.status !== 'pending' && (
-                          <span className="text-gray-500">—</span>
+                          <span className="text-gray-400">—</span>
                         )}
                       </td>
                     </tr>
@@ -573,212 +569,187 @@ export default function AdminDashboard() {
 
         {/* SEARCH TAB */}
         {activeTab === 'search' && (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-8">
-            <h2 className="text-3xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-400">🔍 Search Vinyl Records</h2>
-            <p className="text-gray-400 mb-8">Find records from Discogs and eBay to add to your catalog</p>
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-light text-gray-900 mb-1">Search Vinyl Records</h2>
+              <p className="text-sm text-gray-600">Find records from Discogs and eBay</p>
+            </div>
 
-            <div className="space-y-5 mb-6">
-              {/* Search Input */}
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-300 uppercase tracking-wider">What are you looking for?</label>
-                <div className="relative">
+            <div className="border border-gray-200 rounded-lg p-8 bg-white">
+              <div className="space-y-6">
+                {/* Search Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Search</label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    placeholder="e.g., Pink Floyd, The Beatles, Led Zeppelin..."
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 hover:border-green-500 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 rounded-lg text-white placeholder-gray-500 transition-all"
+                    placeholder="Artist, album, or catalog number"
+                    className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 placeholder-gray-500 transition-all"
                   />
-                  <span className="absolute right-4 top-3 text-gray-500">🎵</span>
                 </div>
-              </div>
 
-              {/* Source Selection */}
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-gray-300 uppercase tracking-wider">Search From</label>
+                {/* Source Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Source</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="discogs"
+                        checked={searchSource === 'discogs'}
+                        onChange={(e) => setSearchSource(e.target.value as 'discogs' | 'ebay')}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-gray-700">Discogs</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="ebay"
+                        checked={searchSource === 'ebay'}
+                        onChange={(e) => setSearchSource(e.target.value as 'discogs' | 'ebay')}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-gray-700">eBay</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Currency Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Currency</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                  >
+                    <option value="USD">USD - US Dollar</option>
+                    <option value="EUR">EUR - Euro</option>
+                    <option value="GBP">GBP - British Pound</option>
+                    <option value="JPY">JPY - Japanese Yen</option>
+                    <option value="CAD">CAD - Canadian Dollar</option>
+                    <option value="AUD">AUD - Australian Dollar</option>
+                    <option value="CHF">CHF - Swiss Franc</option>
+                    <option value="SEK">SEK - Swedish Krona</option>
+                    <option value="NZD">NZD - New Zealand Dollar</option>
+                  </select>
+                </div>
+
+                {/* Search Button */}
                 <div className="flex gap-3">
-                  <label className="flex-1 relative">
-                    <input
-                      type="radio"
-                      value="discogs"
-                      checked={searchSource === 'discogs'}
-                      onChange={(e) => setSearchSource(e.target.value as 'discogs' | 'ebay')}
-                      className="sr-only"
-                    />
-                    <div className={`px-4 py-3 rounded-lg border-2 transition-all cursor-pointer text-center font-semibold ${
-                      searchSource === 'discogs'
-                        ? 'bg-green-600 border-green-500 text-white'
-                        : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500'
-                    }`}>
-                      🎙️ Discogs
-                    </div>
-                  </label>
-                  <label className="flex-1 relative">
-                    <input
-                      type="radio"
-                      value="ebay"
-                      checked={searchSource === 'ebay'}
-                      onChange={(e) => setSearchSource(e.target.value as 'discogs' | 'ebay')}
-                      className="sr-only"
-                    />
-                    <div className={`px-4 py-3 rounded-lg border-2 transition-all cursor-pointer text-center font-semibold ${
-                      searchSource === 'ebay'
-                        ? 'bg-green-600 border-green-500 text-white'
-                        : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500'
-                    }`}>
-                      🛒 eBay
-                    </div>
-                  </label>
+                  <button
+                    onClick={handleSearch}
+                    disabled={searchLoading || !searchQuery.trim()}
+                    className="flex-1 px-6 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                  >
+                    {searchLoading ? 'Searching...' : 'Search'}
+                  </button>
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="px-6 py-3 border border-gray-300 hover:border-gray-400 text-gray-900 font-medium rounded-lg transition-colors"
+                  >
+                    Filters
+                  </button>
                 </div>
-              </div>
 
-              {/* Currency Selection */}
-              <div>
-                <label className="block text-sm font-semibold mb-3 text-gray-300 uppercase tracking-wider">Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 hover:border-green-500 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 rounded-lg text-white font-semibold transition-all"
-                >
-                  <option value="USD">🇺🇸 USD - US Dollar</option>
-                  <option value="EUR">🇪🇺 EUR - Euro</option>
-                  <option value="GBP">🇬🇧 GBP - British Pound</option>
-                  <option value="JPY">🇯🇵 JPY - Japanese Yen</option>
-                  <option value="CAD">🇨🇦 CAD - Canadian Dollar</option>
-                  <option value="AUD">🇦🇺 AUD - Australian Dollar</option>
-                  <option value="CHF">🇨🇭 CHF - Swiss Franc</option>
-                  <option value="SEK">🇸🇪 SEK - Swedish Krona</option>
-                  <option value="NZD">🇳🇿 NZD - New Zealand Dollar</option>
-                </select>
+                {/* Advanced Filters */}
+                {showFilters && (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-6 border-t border-gray-200">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Min Year</label>
+                      <input
+                        type="number"
+                        value={filters.minYear}
+                        onChange={(e) => setFilters({...filters, minYear: e.target.value})}
+                        placeholder="1970"
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Max Year</label>
+                      <input
+                        type="number"
+                        value={filters.maxYear}
+                        onChange={(e) => setFilters({...filters, maxYear: e.target.value})}
+                        placeholder="2024"
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Condition</label>
+                      <select
+                        value={filters.condition}
+                        onChange={(e) => setFilters({...filters, condition: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                      >
+                        <option value="">Any</option>
+                        <option value="Mint">Mint</option>
+                        <option value="Near Mint">Near Mint</option>
+                        <option value="Very Good">Very Good</option>
+                        <option value="Good">Good</option>
+                        <option value="Fair">Fair</option>
+                        <option value="Poor">Poor</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Genre</label>
+                      <input
+                        type="text"
+                        value={filters.genre}
+                        onChange={(e) => setFilters({...filters, genre: e.target.value})}
+                        placeholder="e.g., Rock"
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Label</label>
+                      <input
+                        type="text"
+                        value={filters.label}
+                        onChange={(e) => setFilters({...filters, label: e.target.value})}
+                        placeholder="e.g., Atlantic"
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Search Button */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleSearch}
-                  disabled={searchLoading || !searchQuery.trim()}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/50 disabled:shadow-none"
-                >
-                  {searchLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Searching...
-                    </span>
-                  ) : (
-                    '🔍 Search'
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-all duration-300"
-                >
-                  ⚙️ Filters
-                </button>
-              </div>
-
-              {/* Advanced Filters */}
-              {showFilters && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Min Year</label>
-                    <input
-                      type="number"
-                      value={filters.minYear}
-                      onChange={(e) => setFilters({...filters, minYear: e.target.value})}
-                      placeholder="1970"
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Max Year</label>
-                    <input
-                      type="number"
-                      value={filters.maxYear}
-                      onChange={(e) => setFilters({...filters, maxYear: e.target.value})}
-                      placeholder="2024"
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Condition</label>
-                    <select
-                      value={filters.condition}
-                      onChange={(e) => setFilters({...filters, condition: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
-                    >
-                      <option value="">Any</option>
-                      <option value="Mint">Mint</option>
-                      <option value="Near Mint">Near Mint</option>
-                      <option value="Very Good">Very Good</option>
-                      <option value="Good">Good</option>
-                      <option value="Fair">Fair</option>
-                      <option value="Poor">Poor</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Genre</label>
-                    <input
-                      type="text"
-                      value={filters.genre}
-                      onChange={(e) => setFilters({...filters, genre: e.target.value})}
-                      placeholder="e.g., Rock"
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Label</label>
-                    <input
-                      type="text"
-                      value={filters.label}
-                      onChange={(e) => setFilters({...filters, label: e.target.value})}
-                      placeholder="e.g., Atlantic"
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
             {searchLoading && (
               <div className="text-center py-12">
                 <div className="inline-block">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mb-4"></div>
-                  <p className="text-gray-300">Searching {searchSource === 'discogs' ? 'Discogs' : 'eBay'}...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900 mb-4"></div>
+                  <p className="text-sm text-gray-600">Searching...</p>
                 </div>
               </div>
             )}
 
             {searchError && !searchLoading && (
-              <div className="bg-red-900 border border-red-700 rounded-lg p-4 text-red-100">
-                ⚠️ {searchError}
+              <div className="border border-red-200 rounded-lg p-4 bg-red-50 text-red-700 text-sm">
+                {searchError}
               </div>
             )}
 
             {searchResults.length > 0 && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-2xl font-bold">Search Results ({searchResults.length})</h3>
-                  <div className="text-sm text-gray-400">
-                    {Math.ceil(searchResults.length / resultsPerPage)} results found
-                  </div>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-light text-gray-900">Results ({searchResults.length})</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {searchResults.slice((currentPage - 1) * resultsPerPage, currentPage * resultsPerPage).map((result) => (
-                    <div key={result.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden hover:border-gray-600 transition-all duration-300">
-                      {/* Top Bar */}
-                      <div className="h-1 bg-gradient-to-r from-green-500 to-blue-500"></div>
-
-                      {/* Main Content */}
-                      <div className="p-6">
-                        <div className="flex gap-4 mb-4">
+                    <div key={result.id} className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors">
+                      <div className="p-6 space-y-4">
+                        <div className="flex gap-4">
                           {/* Album Art */}
                           <div className="flex-shrink-0">
                             {result.imageUrl ? (
                               <img
                                 src={result.imageUrl}
                                 alt={result.title}
-                                className="h-28 w-28 object-cover rounded-lg border border-gray-600"
+                                className="h-24 w-24 object-cover rounded border border-gray-200"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none'
                                   const placeholder = e.currentTarget.nextElementSibling as HTMLElement
@@ -786,28 +757,28 @@ export default function AdminDashboard() {
                                 }}
                               />
                             ) : null}
-                            <div className={`h-28 w-28 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center ${result.imageUrl ? 'hidden' : ''}`}>
-                              No Cover
+                            <div className={`h-24 w-24 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400 text-xs text-center ${result.imageUrl ? 'hidden' : ''}`}>
+                              No cover
                             </div>
                           </div>
 
                           {/* Title + Info */}
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-lg font-bold text-green-400 mb-2 line-clamp-2">
+                            <h4 className="text-base font-medium text-gray-900 line-clamp-2 mb-1">
                               {result.title}
                             </h4>
-                            <p className="text-gray-300 text-sm mb-3">
-                              <span className="font-semibold">{result.artist}</span>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {result.artist}
                               {result.year && <span className="text-gray-500"> • {result.year}</span>}
                             </p>
+                            <p className="text-xs text-gray-500 mb-2">{result.label}</p>
 
-                            {/* Tags */}
-                            <div className="flex flex-wrap gap-2">
-                              <span className="px-2.5 py-1.5 bg-blue-900/50 text-blue-300 text-xs border border-blue-700/50 rounded font-mono">
-                                ID: {result.discogsId}
+                            <div className="flex gap-2 flex-wrap">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                                {result.genre}
                               </span>
                               {result.catalog && (
-                                <span className="px-2.5 py-1.5 bg-gray-700/50 text-gray-300 text-xs border border-gray-600/50 rounded truncate">
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded truncate">
                                   {result.catalog}
                                 </span>
                               )}
@@ -815,61 +786,31 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* Divider */}
-                        <div className="h-px bg-gradient-to-r from-gray-600 via-gray-700 to-gray-600 mb-4"></div>
-
-                        {/* Details Grid */}
-                        <div className="grid grid-cols-3 gap-3 mb-4">
-                          <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30">
-                            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Label</p>
-                            <p className="text-white font-medium text-sm truncate">{result.label}</p>
-                          </div>
-                          <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30">
-                            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Genre</p>
-                            <p className="text-white font-medium text-sm truncate">{result.genre}</p>
-                          </div>
-                          <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30">
-                            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">RPM</p>
-                            <p className="text-white font-medium text-sm">{result.rpm}</p>
-                          </div>
+                        {/* Price */}
+                        <div className="border-t border-gray-200 pt-4">
+                          {result.price !== null ? (
+                            <div className="space-y-2">
+                              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Market Price</p>
+                              <p className="text-2xl font-light text-gray-900">{currencySymbols[currency]}{result.price.toFixed(2)}</p>
+                              <p className="text-xs text-gray-500">{result.notes}</p>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">No pricing data available</p>
+                          )}
                         </div>
 
-                        {/* Details */}
-                        <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30 mb-4">
-                          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Details</p>
-                          <p className="text-gray-300 text-sm line-clamp-3">{result.notes}</p>
-                        </div>
-
-                        {/* Price + Action */}
-                        <div className="flex gap-3 items-center">
-                          <div className="flex-1 bg-gray-900/60 rounded-lg p-3 border border-gray-600/30">
-                            {result.price !== null ? (
-                              <>
-                                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Market Price ({currency})</p>
-                                <p className="text-3xl font-bold text-green-400">{currencySymbols[currency]}{result.price.toFixed(2)}</p>
-                                {result.condition && (
-                                  <p className="text-gray-500 text-xs mt-1">{result.condition}</p>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Price</p>
-                                <p className="text-gray-500 text-sm">No active listings</p>
-                              </>
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <button
-                              onClick={() => handleImport(result)}
-                              className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-xs whitespace-nowrap transition-colors duration-200">
-                              📥 Import
-                            </button>
-                            <button
-                              onClick={() => handleGetPriceSuggestions(result)}
-                              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs whitespace-nowrap transition-colors duration-200">
-                              💰 Prices
-                            </button>
-                          </div>
+                        {/* Actions */}
+                        <div className="border-t border-gray-200 pt-4 flex gap-3">
+                          <button
+                            onClick={() => handleImport(result)}
+                            className="flex-1 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded text-sm transition-colors">
+                            Import
+                          </button>
+                          <button
+                            onClick={() => handleGetPriceSuggestions(result)}
+                            className="flex-1 px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 font-medium rounded text-sm transition-colors">
+                            View Prices
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -882,19 +823,19 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
+                      className="px-4 py-2 border border-gray-300 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm transition-colors"
                     >
-                      ← Previous
+                      Previous
                     </button>
                     <div className="flex gap-1">
                       {Array.from({ length: Math.ceil(searchResults.length / resultsPerPage) }, (_, i) => i + 1).map(page => (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                          className={`px-3 py-2 rounded text-sm transition-colors ${
                             currentPage === page
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                              ? 'bg-gray-900 text-white'
+                              : 'border border-gray-300 hover:border-gray-400'
                           }`}
                         >
                           {page}
@@ -904,9 +845,9 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(Math.ceil(searchResults.length / resultsPerPage), prev + 1))}
                       disabled={currentPage === Math.ceil(searchResults.length / resultsPerPage)}
-                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
+                      className="px-4 py-2 border border-gray-300 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm transition-colors"
                     >
-                      Next →
+                      Next
                     </button>
                   </div>
                 )}
@@ -914,64 +855,62 @@ export default function AdminDashboard() {
             )}
 
             {!searchLoading && !searchError && !searchQuery && (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4">🎵</div>
-                <p className="text-gray-400 text-lg">Start by searching for an artist or album above</p>
-                <p className="text-gray-500 text-sm mt-2">Try searching for Pink Floyd, The Beatles, or any artist you like</p>
+              <div className="text-center py-16">
+                <p className="text-gray-600 text-base">Enter a search query to get started</p>
               </div>
             )}
 
             {/* Price Suggestions Modal */}
             {selectedForPricing && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-gray-800 rounded-lg max-w-2xl w-full border border-gray-700 p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-2xl font-bold text-green-400">💰 Market Price Suggestions</h3>
+              <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-2xl w-full border border-gray-200 p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <h3 className="text-xl font-light text-gray-900">Price Data</h3>
                     <button
                       onClick={() => {
                         setSelectedForPricing(null);
                         setPriceSuggestions(null);
                       }}
-                      className="text-gray-400 hover:text-white text-2xl leading-none"
+                      className="text-gray-400 hover:text-gray-600 text-xl leading-none"
                     >
                       ✕
                     </button>
                   </div>
 
-                  <div className="mb-4 pb-4 border-b border-gray-700">
-                    <p className="text-gray-300 font-semibold">{selectedForPricing.title}</p>
-                    <p className="text-gray-500">{selectedForPricing.artist} • {selectedForPricing.year}</p>
+                  <div className="mb-6 pb-6 border-b border-gray-200">
+                    <p className="text-base font-medium text-gray-900">{selectedForPricing.title}</p>
+                    <p className="text-sm text-gray-600 mt-1">{selectedForPricing.artist} • {selectedForPricing.year}</p>
                   </div>
 
                   {loadingPrices ? (
                     <div className="text-center py-8">
-                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-                      <p className="text-gray-400 mt-2">Fetching price data...</p>
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-900"></div>
+                      <p className="text-gray-600 mt-3 text-sm">Fetching data...</p>
                     </div>
                   ) : priceSuggestions ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
-                          <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Lowest Price</p>
-                          <p className="text-2xl font-bold text-blue-400">{currencySymbols[currency]}{priceSuggestions.lowest?.toFixed(2) || 'N/A'}</p>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Lowest</p>
+                          <p className="text-xl font-light text-gray-900">{currencySymbols[currency]}{priceSuggestions.lowest?.toFixed(2) || 'N/A'}</p>
                         </div>
-                        <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
-                          <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Average Price</p>
-                          <p className="text-2xl font-bold text-green-400">{currencySymbols[currency]}{priceSuggestions.average?.toFixed(2) || 'N/A'}</p>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Average</p>
+                          <p className="text-xl font-light text-gray-900">{currencySymbols[currency]}{priceSuggestions.average?.toFixed(2) || 'N/A'}</p>
                         </div>
-                        <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
-                          <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Highest Price</p>
-                          <p className="text-2xl font-bold text-yellow-400">{currencySymbols[currency]}{priceSuggestions.highest?.toFixed(2) || 'N/A'}</p>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Highest</p>
+                          <p className="text-xl font-light text-gray-900">{currencySymbols[currency]}{priceSuggestions.highest?.toFixed(2) || 'N/A'}</p>
                         </div>
                       </div>
-                      <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
-                        <p className="text-gray-500 text-xs font-semibold uppercase mb-2">Recent Sales</p>
-                        <p className="text-gray-400 text-sm">{priceSuggestions.salesCount || 0} listings found in last 30 days</p>
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 font-semibold uppercase mb-1">Recent Sales</p>
+                        <p className="text-sm text-gray-700">{priceSuggestions.salesCount || 0} listings in last 30 days</p>
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-400">No price data available for this record</p>
+                      <p className="text-gray-600 text-sm">No price data available</p>
                     </div>
                   )}
 
@@ -981,7 +920,7 @@ export default function AdminDashboard() {
                         setSelectedForPricing(null);
                         setPriceSuggestions(null);
                       }}
-                      className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                      className="flex-1 px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 rounded-lg transition-colors font-medium"
                     >
                       Close
                     </button>
@@ -992,9 +931,9 @@ export default function AdminDashboard() {
                           setSelectedForPricing(null);
                           setPriceSuggestions(null);
                         }}
-                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors"
+                        className="flex-1 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium"
                       >
-                        Import with Prices
+                        Import
                       </button>
                     )}
                   </div>
@@ -1006,102 +945,102 @@ export default function AdminDashboard() {
 
         {/* PRICING STRATEGY TAB */}
         {activeTab === 'pricing' && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Condition Grading Guide */}
-            <div className="bg-gradient-to-r from-blue-900 to-blue-800 rounded-lg p-8 border border-blue-700">
-              <h2 className="text-2xl font-bold mb-6">📋 Record Condition Grading</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
-                  <p className="font-bold text-blue-300 mb-2">Mint (M)</p>
-                  <p className="text-sm text-gray-300">Perfect condition, never played. Unplayed records still in original shrink wrap.</p>
+            <div className="border border-gray-200 rounded-lg p-8">
+              <h2 className="text-lg font-light text-gray-900 mb-6">Condition Grading</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <p className="font-medium text-gray-900 mb-2">Mint</p>
+                  <p className="text-sm text-gray-600">Perfect condition, never played. Original shrink wrap intact.</p>
                 </div>
-                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
-                  <p className="font-bold text-green-400 mb-2">Near Mint (NM)</p>
-                  <p className="text-sm text-gray-300">Appears unplayed. Little or no evidence of wear. May have slight seam splits.</p>
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <p className="font-medium text-gray-900 mb-2">Near Mint</p>
+                  <p className="text-sm text-gray-600">Appears unplayed. Minimal evidence of wear. Possible slight seam splits.</p>
                 </div>
-                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
-                  <p className="font-bold text-yellow-400 mb-2">Very Good (VG)</p>
-                  <p className="text-sm text-gray-300">Shows some signs of play. Minor scratches visible under light. Plays without issues.</p>
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <p className="font-medium text-gray-900 mb-2">Very Good</p>
+                  <p className="text-sm text-gray-600">Shows signs of play. Minor scratches. Plays without issues.</p>
                 </div>
-                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
-                  <p className="font-bold text-orange-400 mb-2">Good (G)</p>
-                  <p className="text-sm text-gray-300">Played condition with visible wear. Groove wear visible but plays through. May have surface noise.</p>
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <p className="font-medium text-gray-900 mb-2">Good</p>
+                  <p className="text-sm text-gray-600">Visible wear. Groove wear visible. May have surface noise.</p>
                 </div>
               </div>
             </div>
 
             {/* Create Policy */}
-            <div className="bg-gray-800 rounded-lg p-8">
-              <h2 className="text-2xl font-bold mb-6">Create Pricing Strategy</h2>
+            <div className="border border-gray-200 rounded-lg p-8">
+              <h2 className="text-lg font-light text-gray-900 mb-6">Create Strategy</h2>
 
-              <div className="space-y-4 mb-6">
+              <div className="space-y-6 mb-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Strategy Name</label>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Name</label>
                   <input
                     type="text"
                     value={newPolicyName}
                     onChange={(e) => setNewPolicyName(e.target.value)}
-                    placeholder="e.g., Aggressive Markups, Conservative Markups"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                    placeholder="e.g., Conservative, Aggressive"
+                    className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Buy Strategy</label>
-                    <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Buy</label>
+                    <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-gray-400">Base Price</label>
-                        <select className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                        <label className="block text-xs text-gray-600 mb-1">Base Price</label>
+                        <select className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm">
                           <option>Lowest</option>
                           <option>Median</option>
                           <option>Highest</option>
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400">Buy Percentage (%)</label>
+                        <label className="block text-xs text-gray-600 mb-1">Percentage</label>
                         <input
                           type="number"
                           value={newBuyPercentage}
                           onChange={(e) => setNewBuyPercentage(parseInt(e.target.value))}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900"
                           placeholder="55"
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">Offer price = Market price × {newBuyPercentage}%</p>
+                    <p className="text-xs text-gray-600 mt-2">Price = Market × {newBuyPercentage}%</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Sell Strategy</label>
-                    <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Sell</label>
+                    <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-gray-400">Base Price</label>
-                        <select className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                        <label className="block text-xs text-gray-600 mb-1">Base Price</label>
+                        <select className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm">
                           <option>Lowest</option>
                           <option>Median</option>
                           <option>Highest</option>
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400">Sell Percentage (%)</label>
+                        <label className="block text-xs text-gray-600 mb-1">Percentage</label>
                         <input
                           type="number"
                           value={newSellPercentage}
                           onChange={(e) => setNewSellPercentage(parseInt(e.target.value))}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900"
                           placeholder="125"
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">List price = Market price × {newSellPercentage}%</p>
+                    <p className="text-xs text-gray-600 mt-2">Price = Market × {newSellPercentage}%</p>
                   </div>
                 </div>
 
                 <button
                   onClick={handleCreatePolicy}
                   disabled={policyLoading}
-                  className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-bold transition">
+                  className="w-full px-6 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded transition">
                   {policyLoading ? 'Creating...' : 'Create Strategy'}
                 </button>
               </div>
@@ -1109,36 +1048,36 @@ export default function AdminDashboard() {
 
             {/* Existing Policies */}
             {policies.length > 0 && (
-              <div className="bg-gray-800 rounded-lg p-8">
-                <h3 className="text-xl font-bold mb-6">Saved Strategies</h3>
-                <div className="space-y-3">
+              <div className="border border-gray-200 rounded-lg p-8">
+                <h3 className="text-lg font-light text-gray-900 mb-6">Saved Strategies</h3>
+                <div className="space-y-4">
                   {policies.map((policy) => (
                     <div
                       key={policy.id}
-                      className={`p-4 rounded border transition ${
+                      className={`p-4 rounded-lg border transition ${
                         policy.isActive
-                          ? 'bg-green-900/40 border-green-600'
-                          : 'bg-gray-700 hover:bg-gray-650 border-gray-600'
+                          ? 'bg-gray-50 border-gray-300'
+                          : 'bg-white border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-bold text-lg">{policy.name}</h4>
+                          <div className="flex items-center gap-3 mb-3">
+                            <h4 className="font-medium text-gray-900">{policy.name}</h4>
                             {policy.isActive && (
-                              <span className="px-2 py-1 bg-green-600 text-white text-xs font-bold rounded">
-                                ✓ ACTIVE
+                              <span className="px-2 py-1 bg-gray-900 text-white text-xs font-medium rounded">
+                                Active
                               </span>
                             )}
                           </div>
-                          <div className="grid grid-cols-2 gap-4 mb-2">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                              <p className="text-gray-400 text-xs uppercase">Buy Strategy</p>
-                              <p className="text-green-400 font-semibold">{Math.round(policy.buyPercentage * 100)}% {policy.buyMarketStat ? `(${policy.buyMarketStat})` : ''}</p>
+                              <p className="text-gray-600 text-xs uppercase tracking-wide">Buy</p>
+                              <p className="text-gray-900 font-medium">{Math.round(policy.buyPercentage * 100)}%</p>
                             </div>
                             <div>
-                              <p className="text-gray-400 text-xs uppercase">Sell Strategy</p>
-                              <p className="text-blue-400 font-semibold">{Math.round(policy.sellPercentage * 100)}% {policy.sellMarketStat ? `(${policy.sellMarketStat})` : ''}</p>
+                              <p className="text-gray-600 text-xs uppercase tracking-wide">Sell</p>
+                              <p className="text-gray-900 font-medium">{Math.round(policy.sellPercentage * 100)}%</p>
                             </div>
                           </div>
                         </div>
@@ -1146,20 +1085,20 @@ export default function AdminDashboard() {
                           {!policy.isActive && (
                             <button
                               onClick={() => handleActivatePolicy(policy.id)}
-                              className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold transition">
-                              ✓ Activate
+                              className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded text-xs font-medium transition">
+                              Activate
                             </button>
                           )}
                           <button
                             onClick={() => handleOpenEditModal(policy)}
-                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold transition">
-                            ✏️ Edit
+                            className="px-3 py-1.5 border border-gray-300 hover:border-gray-400 text-gray-900 rounded text-xs font-medium transition">
+                            Edit
                           </button>
                           {!policy.isActive && (
                             <button
                               onClick={() => handleDeletePolicy(policy.id)}
-                              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold transition">
-                              🗑️ Delete
+                              className="px-3 py-1.5 border border-red-300 hover:border-red-400 text-red-600 rounded text-xs font-medium transition">
+                              Delete
                             </button>
                           )}
                         </div>
@@ -1172,50 +1111,50 @@ export default function AdminDashboard() {
 
             {/* Edit Policy Modal */}
             {showPolicyModal && editingPolicy && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-gray-800 rounded-lg max-w-lg w-full border border-gray-700 p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-bold text-green-400">Edit Strategy</h3>
+              <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-lg w-full border border-gray-200 p-8">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-light text-gray-900">Edit Strategy</h3>
                     <button
                       onClick={() => setShowPolicyModal(false)}
-                      className="text-gray-400 hover:text-white text-2xl leading-none"
+                      className="text-gray-400 hover:text-gray-600 text-xl leading-none"
                     >
                       ✕
                     </button>
                   </div>
 
-                  <div className="space-y-4 mb-6">
+                  <div className="space-y-6 mb-6">
                     <div>
-                      <label className="block text-sm font-semibold mb-2">Strategy Name</label>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Name</label>
                       <input
                         type="text"
                         value={editingPolicy.name}
                         onChange={(e) => setEditingPolicy({...editingPolicy, name: e.target.value})}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                        className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-semibold mb-2">Buy Percentage (%)</label>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy %</label>
                         <input
                           type="number"
                           value={newBuyPercentage}
                           onChange={(e) => setNewBuyPercentage(parseInt(e.target.value) || 0)}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                          className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Offer price = Market price × {newBuyPercentage}%</p>
+                        <p className="text-xs text-gray-600 mt-2">Market × {newBuyPercentage}%</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold mb-2">Sell Percentage (%)</label>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell %</label>
                         <input
                           type="number"
                           value={newSellPercentage}
                           onChange={(e) => setNewSellPercentage(parseInt(e.target.value) || 0)}
-                          className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                          className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900"
                         />
-                        <p className="text-xs text-gray-400 mt-1">List price = Market price × {newSellPercentage}%</p>
+                        <p className="text-xs text-gray-600 mt-2">Market × {newSellPercentage}%</p>
                       </div>
                     </div>
                   </div>
@@ -1223,16 +1162,16 @@ export default function AdminDashboard() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowPolicyModal(false)}
-                      className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-semibold transition"
+                      className="flex-1 px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 rounded font-medium transition"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleEditPolicy}
                       disabled={policyLoading}
-                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded font-semibold transition"
+                      className="flex-1 px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded font-medium transition"
                     >
-                      {policyLoading ? 'Updating...' : 'Update Strategy'}
+                      {policyLoading ? 'Updating...' : 'Update'}
                     </button>
                   </div>
                 </div>
@@ -1243,79 +1182,73 @@ export default function AdminDashboard() {
 
         {/* ANALYTICS TAB */}
         {activeTab === 'analytics' && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Top Level Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              <div className="bg-gradient-to-br from-green-900 to-green-800 p-8 rounded-lg border-l-4 border-green-400 shadow-lg">
-                <p className="text-green-300 text-sm font-bold mb-2">💼 INVENTORY VALUE</p>
-                <p className="text-4xl font-bold text-white">${analytics.inventoryValue.toFixed(2)}</p>
-                <p className="text-xs text-green-200 mt-2">Total stock on hand</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="border border-gray-200 rounded-lg p-8">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Inventory Value</p>
+                <p className="text-3xl font-light text-gray-900 mb-1">${analytics.inventoryValue.toFixed(2)}</p>
+                <p className="text-xs text-gray-600">Total stock</p>
               </div>
-              <div className="bg-gradient-to-br from-blue-900 to-blue-800 p-8 rounded-lg border-l-4 border-blue-400 shadow-lg">
-                <p className="text-blue-300 text-sm font-bold mb-2">📊 TOTAL SALES (30d)</p>
-                <p className="text-4xl font-bold text-white">${analytics.salesRevenue.toFixed(2)}</p>
-                <p className="text-xs text-blue-200 mt-2">Revenue from sales</p>
+              <div className="border border-gray-200 rounded-lg p-8">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Sales (30d)</p>
+                <p className="text-3xl font-light text-gray-900 mb-1">${analytics.salesRevenue.toFixed(2)}</p>
+                <p className="text-xs text-gray-600">Revenue</p>
               </div>
-              <div className="bg-gradient-to-br from-purple-900 to-purple-800 p-8 rounded-lg border-l-4 border-purple-400 shadow-lg">
-                <p className="text-purple-300 text-sm font-bold mb-2">💰 GROSS PROFIT</p>
-                <p className="text-4xl font-bold text-white">${analytics.totalProfit.toFixed(2)}</p>
-                <p className="text-xs text-purple-200 mt-2">Net earnings</p>
+              <div className="border border-gray-200 rounded-lg p-8">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Profit</p>
+                <p className="text-3xl font-light text-gray-900 mb-1">${analytics.totalProfit.toFixed(2)}</p>
+                <p className="text-xs text-gray-600">Net earnings</p>
               </div>
             </div>
 
             {/* Secondary Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-yellow-500 transition">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-yellow-400 font-bold text-sm">🆕 ADDED THIS WEEK</p>
-                  <p className="text-2xl font-bold text-yellow-400">{analytics.addedThisWeek}</p>
-                </div>
-                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-yellow-500" style={{width: `${Math.min(analytics.addedThisWeek * 10, 100)}%`}}></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="border border-gray-200 rounded-lg p-6">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-4">Added This Week</p>
+                <p className="text-2xl font-light text-gray-900 mb-3">{analytics.addedThisWeek}</p>
+                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gray-900" style={{width: `${Math.min(analytics.addedThisWeek * 10, 100)}%`}}></div>
                 </div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-orange-500 transition">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-orange-400 font-bold text-sm">🎵 SOLD (30d)</p>
-                  <p className="text-2xl font-bold text-orange-400">{analytics.recentSalesCount}</p>
-                </div>
-                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-orange-500" style={{width: `${Math.min(analytics.recentSalesCount * 10, 100)}%`}}></div>
+              <div className="border border-gray-200 rounded-lg p-6">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-4">Sold (30d)</p>
+                <p className="text-2xl font-light text-gray-900 mb-3">{analytics.recentSalesCount}</p>
+                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gray-900" style={{width: `${Math.min(analytics.recentSalesCount * 10, 100)}%`}}></div>
                 </div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-green-500 transition">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-green-400 font-bold text-sm">📈 AVG MARGIN</p>
-                  <p className="text-2xl font-bold text-green-400">{analytics.averageProfitMargin.toFixed(1)}%</p>
-                </div>
-                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500" style={{width: `${Math.min(analytics.averageProfitMargin, 100)}%`}}></div>
+              <div className="border border-gray-200 rounded-lg p-6">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-4">Avg Margin</p>
+                <p className="text-2xl font-light text-gray-900 mb-3">{analytics.averageProfitMargin.toFixed(1)}%</p>
+                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gray-900" style={{width: `${Math.min(analytics.averageProfitMargin, 100)}%`}}></div>
                 </div>
               </div>
             </div>
 
             {/* Summary Info */}
-            <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg p-8 border border-gray-600">
-              <h3 className="text-2xl font-bold mb-6 text-white">📈 Business Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="border border-gray-200 rounded-lg p-8">
+              <h3 className="text-lg font-light text-gray-900 mb-6">Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
-                    <span className="text-gray-300 font-semibold">Cost of Goods Sold:</span>
-                    <span className="text-white font-bold text-lg">${(analytics.salesRevenue - analytics.totalProfit).toFixed(2)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Cost of goods sold:</span>
+                    <span className="text-gray-900 font-medium">${(analytics.salesRevenue - analytics.totalProfit).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
-                    <span className="text-gray-300 font-semibold">Total Revenue:</span>
-                    <span className="text-green-400 font-bold text-lg">${analytics.salesRevenue.toFixed(2)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Total revenue:</span>
+                    <span className="text-gray-900 font-medium">${analytics.salesRevenue.toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
-                    <span className="text-gray-300 font-semibold">Profit Generated:</span>
-                    <span className="text-blue-400 font-bold text-lg">${analytics.totalProfit.toFixed(2)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Profit generated:</span>
+                    <span className="text-gray-900 font-medium">${analytics.totalProfit.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
-                    <span className="text-gray-300 font-semibold">Average Markup:</span>
-                    <span className="text-purple-400 font-bold text-lg">{analytics.averageProfitMargin.toFixed(2)}% above cost</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Average markup:</span>
+                    <span className="text-gray-900 font-medium">{analytics.averageProfitMargin.toFixed(2)}%</span>
                   </div>
                 </div>
               </div>

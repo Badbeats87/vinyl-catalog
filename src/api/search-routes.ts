@@ -36,8 +36,20 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
     });
 
     // Transform Discogs results to our format with marketplace pricing
+    // First, deduplicate by master_id to avoid showing same release multiple times
+    const seenMasterIds = new Set<number>();
+    const uniqueResults = response.data.results.filter((item: any) => {
+      if (item.master_id) {
+        if (seenMasterIds.has(item.master_id)) {
+          return false; // Skip duplicate master
+        }
+        seenMasterIds.add(item.master_id);
+      }
+      return true;
+    });
+
     const results = await Promise.all(
-      response.data.results.map(async (item: any) => {
+      uniqueResults.map(async (item: any) => {
         // Better artist/title parsing
         const titleParts = item.title?.split(' - ') || [];
         let artist = 'Various Artists';
