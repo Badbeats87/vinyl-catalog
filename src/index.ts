@@ -133,6 +133,15 @@ app.post('/api/seller/submit', authenticate, requireSeller, async (req: Request,
   }
 });
 
+app.post('/api/seller/listings', authenticate, requireSeller, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const response = await sellerRoutes.createListing(req.body);
+    res.status(response.success ? 200 : 400).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/seller/submission/:submissionNumber', authenticate, requireSeller, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const response = await sellerRoutes.getSubmission({

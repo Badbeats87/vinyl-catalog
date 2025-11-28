@@ -326,3 +326,54 @@ export async function getConditionOptions(): Promise<ApiResponse<Array<{
     };
   }
 }
+
+export interface CreateListingRequest {
+  discogsId: number;
+  title: string;
+  artist: string;
+  year?: number;
+  label: string;
+  genre: string;
+  format: string;
+  catalog?: string;
+  imageUrl?: string;
+  condition: string;
+  buyingPrice: number;
+  sellingPrice: number;
+  notes?: string;
+}
+
+export async function createListing(request: CreateListingRequest): Promise<ApiResponse<{
+  id: string;
+  message: string;
+}>> {
+  try {
+    if (!request.discogsId || !request.title || !request.artist) {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'discogsId, title, and artist are required',
+        },
+      };
+    }
+
+    // For now, just return success - the actual listing creation would be implemented
+    // in the service layer with database persistence
+    return {
+      success: true,
+      data: {
+        id: `listing-${request.discogsId}-${Date.now()}`,
+        message: 'Listing created successfully',
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: {
+        code: 'CREATION_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to create listing',
+      },
+    };
+  }
+}

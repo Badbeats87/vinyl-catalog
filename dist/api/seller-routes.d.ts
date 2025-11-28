@@ -55,5 +55,24 @@ export declare function getConditionOptions(): Promise<ApiResponse<Array<{
     mediaAdjustment: number;
     sleeveAdjustment: number;
 }>>>;
+export interface CreateListingRequest {
+    discogsId: number;
+    title: string;
+    artist: string;
+    year?: number;
+    label: string;
+    genre: string;
+    format: string;
+    catalog?: string;
+    imageUrl?: string;
+    condition: string;
+    buyingPrice: number;
+    sellingPrice: number;
+    notes?: string;
+}
+export declare function createListing(request: CreateListingRequest): Promise<ApiResponse<{
+    id: string;
+    message: string;
+}>>;
 export {};
 //# sourceMappingURL=seller-routes.d.ts.map
