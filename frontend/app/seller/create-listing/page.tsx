@@ -67,7 +67,8 @@ export default function CreateListing() {
           setError('No records found on Discogs. You can add it manually below.');
         }
       } else {
-        setError(data.error || 'Search failed');
+        const errorMsg = typeof data.error === 'string' ? data.error : data.error?.message || 'Search failed';
+        setError(errorMsg);
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -122,10 +123,12 @@ export default function CreateListing() {
       if (data.success) {
         router.push('/seller/dashboard');
       } else {
-        setError(data.error || 'Failed to create listing');
+        const errorMsg = typeof data.error === 'string' ? data.error : data.error?.message || 'Failed to create listing';
+        setError(errorMsg);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to create listing');
+      const errorMsg = typeof err === 'string' ? err : err?.message || 'Failed to create listing';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
