@@ -385,13 +385,13 @@ export default function AdminDashboard() {
                           <p className="text-gray-300">{result.artist}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-green-400">${result.price.toFixed(2)}</p>
+                          <p className="font-bold text-green-400">{result.price ? `$${result.price.toFixed(2)}` : 'N/A'}</p>
                           <p className="text-xs text-gray-400">{result.label}</p>
                         </div>
                       </div>
                       <div className="text-sm text-gray-400 flex justify-between">
-                        <span>{result.year}</span>
-                        <span>{result.condition}</span>
+                        <span>{result.year || 'N/A'}</span>
+                        <span>{result.condition || 'N/A'}</span>
                         <button className="text-green-400 hover:text-green-300 font-semibold">Import →</button>
                       </div>
                     </div>
