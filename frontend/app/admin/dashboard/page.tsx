@@ -39,6 +39,9 @@ interface PricingPolicy {
   name: string;
   buyPercentage: number;
   sellPercentage: number;
+  isActive?: boolean;
+  buyMarketStat?: string;
+  sellMarketStat?: string;
 }
 
 interface AnalyticStats {
@@ -373,6 +376,43 @@ export default function AdminDashboard() {
     setNewBuyPercentage(Math.round(policy.buyPercentage * 100));
     setNewSellPercentage(Math.round(policy.sellPercentage * 100));
     setShowPolicyModal(true);
+  };
+
+  const handleActivatePolicy = async (policyId: string) => {
+    try {
+      // First, deactivate all policies
+      await Promise.all(
+        policies
+          .filter(p => p.isActive)
+          .map(p =>
+            fetch(`/api/pricing/policies/${p.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ isActive: false }),
+            })
+          )
+      );
+
+      // Then activate the selected one
+      const res = await fetch(`/api/pricing/policies/${policyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPolicies(policies.map(p => ({
+          ...p,
+          isActive: p.id === policyId
+        })));
+        alert('Pricing strategy activated!');
+      } else {
+        alert(data.error || 'Failed to activate strategy');
+      }
+    } catch (err) {
+      console.error('Error activating policy:', err);
+      alert('Failed to activate strategy');
+    }
   };
 
   const pendingCount = submissions.filter((s) => s.status === 'pending').length;
@@ -967,6 +1007,29 @@ export default function AdminDashboard() {
         {/* PRICING STRATEGY TAB */}
         {activeTab === 'pricing' && (
           <div className="space-y-6">
+            {/* Condition Grading Guide */}
+            <div className="bg-gradient-to-r from-blue-900 to-blue-800 rounded-lg p-8 border border-blue-700">
+              <h2 className="text-2xl font-bold mb-6">📋 Record Condition Grading</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
+                  <p className="font-bold text-blue-300 mb-2">Mint (M)</p>
+                  <p className="text-sm text-gray-300">Perfect condition, never played. Unplayed records still in original shrink wrap.</p>
+                </div>
+                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
+                  <p className="font-bold text-green-400 mb-2">Near Mint (NM)</p>
+                  <p className="text-sm text-gray-300">Appears unplayed. Little or no evidence of wear. May have slight seam splits.</p>
+                </div>
+                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
+                  <p className="font-bold text-yellow-400 mb-2">Very Good (VG)</p>
+                  <p className="text-sm text-gray-300">Shows some signs of play. Minor scratches visible under light. Plays without issues.</p>
+                </div>
+                <div className="bg-blue-900/50 p-4 rounded border border-blue-600">
+                  <p className="font-bold text-orange-400 mb-2">Good (G)</p>
+                  <p className="text-sm text-gray-300">Played condition with visible wear. Groove wear visible but plays through. May have surface noise.</p>
+                </div>
+              </div>
+            </div>
+
             {/* Create Policy */}
             <div className="bg-gray-800 rounded-lg p-8">
               <h2 className="text-2xl font-bold mb-6">Create Pricing Strategy</h2>
@@ -1050,32 +1113,55 @@ export default function AdminDashboard() {
                 <h3 className="text-xl font-bold mb-6">Saved Strategies</h3>
                 <div className="space-y-3">
                   {policies.map((policy) => (
-                    <div key={policy.id} className="bg-gray-700 hover:bg-gray-650 p-4 rounded border border-gray-600 transition">
+                    <div
+                      key={policy.id}
+                      className={`p-4 rounded border transition ${
+                        policy.isActive
+                          ? 'bg-green-900/40 border-green-600'
+                          : 'bg-gray-700 hover:bg-gray-650 border-gray-600'
+                      }`}
+                    >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h4 className="font-bold text-lg mb-2">{policy.name}</h4>
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-bold text-lg">{policy.name}</h4>
+                            {policy.isActive && (
+                              <span className="px-2 py-1 bg-green-600 text-white text-xs font-bold rounded">
+                                ✓ ACTIVE
+                              </span>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 gap-4 mb-2">
                             <div>
                               <p className="text-gray-400 text-xs uppercase">Buy Strategy</p>
-                              <p className="text-green-400 font-semibold">{Math.round(policy.buyPercentage * 100)}% of Market Price</p>
+                              <p className="text-green-400 font-semibold">{Math.round(policy.buyPercentage * 100)}% {policy.buyMarketStat ? `(${policy.buyMarketStat})` : ''}</p>
                             </div>
                             <div>
                               <p className="text-gray-400 text-xs uppercase">Sell Strategy</p>
-                              <p className="text-blue-400 font-semibold">{Math.round(policy.sellPercentage * 100)}% of Market Price</p>
+                              <p className="text-blue-400 font-semibold">{Math.round(policy.sellPercentage * 100)}% {policy.sellMarketStat ? `(${policy.sellMarketStat})` : ''}</p>
                             </div>
                           </div>
                         </div>
                         <div className="flex gap-2">
+                          {!policy.isActive && (
+                            <button
+                              onClick={() => handleActivatePolicy(policy.id)}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold transition">
+                              ✓ Activate
+                            </button>
+                          )}
                           <button
                             onClick={() => handleOpenEditModal(policy)}
                             className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold transition">
                             ✏️ Edit
                           </button>
-                          <button
-                            onClick={() => handleDeletePolicy(policy.id)}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold transition">
-                            🗑️ Delete
-                          </button>
+                          {!policy.isActive && (
+                            <button
+                              onClick={() => handleDeletePolicy(policy.id)}
+                              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold transition">
+                              🗑️ Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
