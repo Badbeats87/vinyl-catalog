@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: [],
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    isolation: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

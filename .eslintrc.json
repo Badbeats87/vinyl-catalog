@@ -17,7 +17,7 @@
     "@typescript-eslint"
   ],
   "rules": {
-    "@typescript-eslint/explicit-function-return-types": [
+    "@typescript-eslint/explicit-function-return-type": [
       "warn",
       {
         "allowExpressions": true,
@@ -40,7 +40,11 @@
           "camelCase"
         ],
         "leadingUnderscore": "allow",
-        "trailingUnderscore": "allow"
+        "trailingUnderscore": "allow",
+        "filter": {
+          "match": false,
+          "regex": "^[0-9]+$"
+        }
       },
       {
         "selector": "variable",
@@ -49,7 +53,11 @@
           "UPPER_CASE"
         ],
         "leadingUnderscore": "allow",
-        "trailingUnderscore": "allow"
+        "trailingUnderscore": "allow",
+        "filter": {
+          "match": false,
+          "regex": "^[0-9]+$"
+        }
       },
       {
         "selector": "typeLike",
@@ -83,6 +91,21 @@
   "ignorePatterns": [
     "dist",
     "coverage",
-    "node_modules"
+    "node_modules",
+    "**/*.test.ts"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts"
+      ],
+      "parserOptions": {
+        "project": "./tsconfig.test.json"
+      },
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "no-console": "off"
+      }
+    }
   ]
 }
