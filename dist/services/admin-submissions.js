@@ -232,7 +232,7 @@ export async function counterOfferSubmissionItem(input) {
         },
     });
     // Log the action
-    const historyRecord = await prisma.submissionHistory.create({
+    await prisma.submissionHistory.create({
         data: {
             submissionId: item.submissionId,
             submissionItemId: input.submissionItemId,

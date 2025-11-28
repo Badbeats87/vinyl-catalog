@@ -207,6 +207,10 @@ model InventoryLot {
   updatedAt       DateTime @updatedAt
   listedAt        DateTime? // When it went live
 
+  // Relations
+  cartItems       CartItem[]
+  orders          BuyerOrder[]
+
   @@index([releaseId])
   @@index([status])
   @@index([channel])
@@ -274,3 +278,155 @@ model SubmissionHistory {
   @@index([actionType])
   @@index([createdAt])
 }
+
+// Buyer account (storefront customer)
+model Buyer {
+  id              String   @id @default(cuid())
+  email           String   @unique @db.VarChar(255)
+  name            String?  @db.VarChar(255)
+
+  // Contact info
+  phone           String?  @db.VarChar(20)
+
+  // Shipping address
+  shippingAddress String?  @db.Text // JSON object with: street, city, state, zip, country
+  billingAddress  String?  @db.Text // JSON object, or null to use shipping
+
+  // Preferences
+  notifications   Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  carts           ShoppingCart[]
+  orders          BuyerOrder[]
+
+  @@index([email])
+}
+
+// Shopping cart for buyer
+model ShoppingCart {
+  id              String   @id @default(cuid())
+  buyerId         String
+  buyer           Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  // Cart state
+  status          String   @db.VarChar(50) @default("active")
+  // Status: active, abandoned, checked_out
+
+  subtotal        Float    @default(0)
+  tax             Float    @default(0)
+  shipping        Float    @default(0)
+  total           Float    @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  abandonedAt     DateTime? // When cart was abandoned (if applicable)
+
+  // Relations
+  items           CartItem[]
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Cart line item
+model CartItem {
+  id              String   @id @default(cuid())
+  cartId          String
+  cart            ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  lotId           String
+  lot             InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  // Item-level pricing (captured at time of add)
+  pricePerUnit    Float
+  quantity        Int      @default(1)
+  lineTotal       Float
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([cartId])
+  @@index([lotId])
+  @@unique([cartId, lotId]) // One entry per lot per cart
+}
+
+// Buyer order
+model BuyerOrder {
+  id              String   @id @default(cuid())
+  orderNumber     String   @unique // Human-readable identifier
+  buyerId         String
+  buyer           Buyer    @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+
+  // Order state
+  status          String   @db.VarChar(50) @default("pending_payment")
+  // Status: pending_payment, payment_processing, paid, shipment_pending, shipped, delivered, cancelled, returned
+
+  // Pricing
+  subtotal        Float
+  tax             Float
+  shipping        Float
+  total           Float
+
+  // Payment info
+  paymentMethod   String   @db.VarChar(50) // "paypal", "card", etc.
+  paypalOrderId   String?  @db.VarChar(255) // PayPal order ID for tracking
+  paymentStatus   String?  @db.VarChar(50) // "pending", "authorized", "captured", "failed", "refunded"
+
+  // Shipping
+  shippingAddress String   @db.Text // JSON: street, city, state, zip, country, name, phone
+  trackingNumber  String?  @db.VarChar(255)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  paidAt          DateTime?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+
+  // Relations
+  items           OrderItem[]
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+// Order line item
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  order           BuyerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  lotId           String
+  lot             InventoryLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  // Item pricing (captured at time of order)
+  pricePerUnit    Float
+  quantity        Int      @default(1)
+  lineTotal       Float
+
+  createdAt       DateTime @default(now())
+
+  @@index([orderId])
+  @@index([lotId])
+}
+
+// Channel configuration for visibility rules
+model ChannelConfig {
+  id              String   @id @default(cuid())
+  channel         String   @unique @db.VarChar(50) // "web", "store_walkIn", etc.
+  displayName     String   @db.VarChar(255)
+  isPublic        Boolean  @default(false) // Whether this channel is visible to buyers
+  isSellable      Boolean  @default(true)  // Can items on this channel be purchased?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isPublic])
+}
+
