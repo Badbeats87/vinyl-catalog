@@ -246,3 +246,59 @@ export function validateOffset(offset: number | undefined): number {
   }
   return o;
 }
+
+/**
+ * Email validation
+ */
+export function validateEmail(email: string | undefined): string {
+  if (!email || typeof email !== 'string') {
+    throw new ValidationError('Email is required and must be a string');
+  }
+  const trimmed = email.trim();
+  if (trimmed.length === 0) {
+    throw new ValidationError('Email cannot be empty');
+  }
+  if (trimmed.length > 255) {
+    throw new ValidationError('Email must be 255 characters or less');
+  }
+  // RFC 5322 simplified email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) {
+    throw new ValidationError('Email must be a valid email address');
+  }
+  return trimmed;
+}
+
+export function validatePhone(phone: string | undefined): string | undefined {
+  if (!phone) {
+    return undefined;
+  }
+  if (typeof phone !== 'string') {
+    throw new ValidationError('Phone must be a string');
+  }
+  const trimmed = phone.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  if (trimmed.length > 20) {
+    throw new ValidationError('Phone must be 20 characters or less');
+  }
+  // Allow various phone formats: +1-234-567-8900, 1234567890, +1 (234) 567-8900, etc.
+  if (!/^[\d\s\-\+\(\)]+$/.test(trimmed)) {
+    throw new ValidationError('Phone must contain only digits, spaces, hyphens, parentheses, or plus sign');
+  }
+  return trimmed;
+}
+
+export function validateQuantity(quantity: number | undefined, fieldName = 'Quantity'): number {
+  if (quantity === undefined || quantity === null) {
+    throw new ValidationError(`${fieldName} is required`);
+  }
+  if (typeof quantity !== 'number' || !Number.isInteger(quantity)) {
+    throw new ValidationError(`${fieldName} must be an integer`);
+  }
+  if (quantity < 1 || quantity > 1000) {
+    throw new ValidationError(`${fieldName} must be between 1 and 1000`);
+  }
+  return quantity;
+}

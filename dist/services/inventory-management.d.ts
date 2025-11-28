@@ -1,0 +1,64 @@
+/**
+ * Inventory Management Service
+ * Handles inventory lot creation and management
+ */
+import { SubmissionItem } from '@prisma/client';
+export interface CreateInventoryLotInput {
+    releaseId: string;
+    conditionMedia: string;
+    conditionSleeve: string;
+    costBasis: number;
+    listPrice: number;
+    quantity?: number;
+    channel?: string;
+    internalNotes?: string;
+}
+/**
+ * Create a new inventory lot
+ */
+export declare function createInventoryLot(input: CreateInventoryLotInput): Promise<string>;
+/**
+ * Create inventory lot from a finalized submission item
+ */
+export declare function createInventoryLotFromSubmissionItem(item: SubmissionItem): Promise<string>;
+/**
+ * Get an inventory lot by ID or lot number
+ */
+export declare function getInventoryLot(identifier: string, byLotNumber?: boolean): Promise<any | null>;
+/**
+ * List inventory lots with filtering
+ */
+export declare function listInventoryLots(filters?: {
+    status?: string;
+    channel?: string;
+    releaseId?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    limit?: number;
+    offset?: number;
+}): Promise<{
+    lots: any[];
+    total: number;
+}>;
+/**
+ * Update inventory lot
+ */
+export declare function updateInventoryLot(lotId: string, updates: {
+    listPrice?: number;
+    status?: string;
+    internalNotes?: string;
+    channel?: string;
+}): Promise<void>;
+/**
+ * Get inventory metrics
+ */
+export declare function getInventoryMetrics(): Promise<{
+    totalLots: number;
+    lotsByStatus: {
+        status: string;
+        count: number;
+    }[];
+    totalInventoryValue: number;
+    totalCostBasis: number;
+}>;
+//# sourceMappingURL=inventory-management.d.ts.map

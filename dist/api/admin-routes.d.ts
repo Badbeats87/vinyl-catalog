@@ -1,0 +1,117 @@
+/**
+ * Admin API Routes
+ * Handles admin operations for submissions, inventory, and business intelligence
+ */
+export interface ApiResponse<T> {
+    success: boolean;
+    data?: T;
+    error?: {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+    };
+}
+/**
+ * List submissions with filters for admin dashboard
+ */
+export declare function listSubmissions(status?: string, sellerEmail?: string, startDate?: string, endDate?: string, minValue?: number, maxValue?: number, limit?: number, offset?: number): Promise<ApiResponse<any>>;
+/**
+ * Get submission detail for admin
+ */
+export declare function getSubmissionDetail(submissionId: string): Promise<ApiResponse<any>>;
+export interface AcceptItemInput {
+    submissionItemId: string;
+    finalConditionMedia?: string;
+    finalConditionSleeve?: string;
+    finalOfferPrice?: number;
+    adminNotes?: string;
+}
+/**
+ * Accept a submission item
+ */
+export declare function acceptItem(input: AcceptItemInput): Promise<ApiResponse<null>>;
+export interface RejectItemInput {
+    submissionItemId: string;
+    adminNotes?: string;
+}
+/**
+ * Reject a submission item
+ */
+export declare function rejectItem(input: RejectItemInput): Promise<ApiResponse<null>>;
+export interface CounterOfferInput {
+    submissionItemId: string;
+    newPrice: number;
+    adminNotes?: string;
+}
+/**
+ * Send counter-offer for a submission item
+ */
+export declare function counterOffer(input: CounterOfferInput): Promise<ApiResponse<null>>;
+export interface InspectItemInput {
+    submissionItemId: string;
+    finalConditionMedia: string;
+    finalConditionSleeve: string;
+    adminNotes?: string;
+}
+/**
+ * Inspect a received submission item and update condition
+ */
+export declare function inspectItem(input: InspectItemInput): Promise<ApiResponse<null>>;
+/**
+ * Finalize an inspected item (convert to inventory)
+ */
+export declare function finalizeItem(submissionItemId: string): Promise<ApiResponse<{
+    lotNumber: string;
+}>>;
+export interface AcceptAllItemsInput {
+    submissionId: string;
+    adminNotes?: string;
+}
+/**
+ * Accept all pending items in a submission
+ */
+export declare function acceptAllItems(input: AcceptAllItemsInput): Promise<ApiResponse<{
+    acceptedCount: number;
+}>>;
+export interface RejectAllItemsInput {
+    submissionId: string;
+    adminNotes?: string;
+}
+/**
+ * Reject all pending items in a submission
+ */
+export declare function rejectAllItems(input: RejectAllItemsInput): Promise<ApiResponse<{
+    rejectedCount: number;
+}>>;
+/**
+ * Get admin submission metrics for dashboard
+ */
+export declare function getSubmissionMetrics(): Promise<ApiResponse<any>>;
+/**
+ * Record seller's response to counter-offer
+ */
+export declare function recordCounterOfferResponse(submissionItemId: string, response: 'accepted' | 'rejected'): Promise<ApiResponse<null>>;
+/**
+ * List inventory lots
+ */
+export declare function listInventory(status?: string, channel?: string, releaseId?: string, minPrice?: number, maxPrice?: number, limit?: number, offset?: number): Promise<ApiResponse<any>>;
+/**
+ * Get inventory lot detail
+ */
+export declare function getInventoryDetail(identifier: string, byLotNumber?: boolean): Promise<ApiResponse<any>>;
+export interface UpdateInventoryInput {
+    lotId: string;
+    listPrice?: number;
+    status?: string;
+    internalNotes?: string;
+    channel?: string;
+}
+/**
+ * Update inventory lot
+ */
+export declare function updateInventory(input: UpdateInventoryInput): Promise<ApiResponse<null>>;
+/**
+ * Get inventory metrics
+ */
+export declare function getInventoryMetricsRoute(): Promise<ApiResponse<any>>;
+//# sourceMappingURL=admin-routes.d.ts.map

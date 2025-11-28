@@ -28,6 +28,7 @@ model Release {
   marketSnapshots MarketSnapshot[]
   submissionItems SubmissionItem[]
   inventoryLots   InventoryLot[]
+  pricingAudits   PricingCalculationAudit[]
 
   @@index([barcode])
   @@index([artist, title])
@@ -46,6 +47,9 @@ model MarketSnapshot {
   fetchedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relations
+  pricingAudits PricingCalculationAudit[]
 
   @@unique([releaseId, source])
   @@index([releaseId])
@@ -106,6 +110,9 @@ model PricingPolicy {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // Relations
+  auditLogs        PricingCalculationAudit[]
+
   @@index([scope, scopeValue])
   @@index([isActive])
 }
@@ -132,6 +139,7 @@ model SellerSubmission {
 
   // Relations
   items           SubmissionItem[]
+  history         SubmissionHistory[]
 
   @@index([status])
   @@index([sellerEmail])
@@ -164,6 +172,9 @@ model SubmissionItem {
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  // Relations
+  history         SubmissionHistory[]
 
   @@index([submissionId])
   @@index([releaseId])
@@ -200,4 +211,66 @@ model InventoryLot {
   @@index([status])
   @@index([channel])
   @@index([listPrice])
+}
+
+// Audit log for pricing calculations
+model PricingCalculationAudit {
+  id              String   @id @default(cuid())
+  releaseId       String
+  release         Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  policyId        String
+  policy          PricingPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  marketSnapshotId String?
+  marketSnapshot  MarketSnapshot? @relation(fields: [marketSnapshotId], references: [id], onDelete: SetNull)
+
+  calculationType String   @db.VarChar(50) // "buy_offer", "sell_price"
+
+  // Inputs to calculation
+  conditionMedia  String   @db.VarChar(50)
+  conditionSleeve String   @db.VarChar(50)
+  marketPrice     Float?   // The market price used
+
+  // Output
+  calculatedPrice Float
+
+  // Calculation breakdown
+  calculationDetails String? @db.Text // JSON breakdown of how price was calculated
+
+  createdAt       DateTime @default(now())
+
+  @@index([releaseId])
+  @@index([policyId])
+  @@index([createdAt])
+}
+
+// Admin decision history for submissions
+model SubmissionHistory {
+  id              String   @id @default(cuid())
+  submissionId    String
+  submission      SellerSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  submissionItemId String?
+  submissionItem  SubmissionItem? @relation(fields: [submissionItemId], references: [id], onDelete: Cascade)
+
+  actionType      String   @db.VarChar(50) // "accepted", "rejected", "counter_offered", "received_and_inspected", "finalized"
+  adminNotes      String?  @db.Text
+
+  // For condition updates
+  finalConditionMedia String? @db.VarChar(50)
+  finalConditionSleeve String? @db.VarChar(50)
+
+  // For counter-offer or final price adjustments
+  adjustedPrice   Float?
+
+  // For tracking seller response to counter-offer
+  sellerResponse  String?  @db.VarChar(50) // "pending", "accepted", "rejected"
+  sellerResponseAt DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([submissionId])
+  @@index([submissionItemId])
+  @@index([actionType])
+  @@index([createdAt])
 }
