@@ -34,52 +34,22 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
     // Transform Discogs results to our format with marketplace pricing
     const results = await Promise.all(
       response.data.results.map(async (item: any) => {
-        // Parse artist from title (format: "Artist - Album Title")
+        // Better artist/title parsing
         const titleParts = item.title?.split(' - ') || [];
-        const artist = titleParts[0] || 'Various Artists';
-        const albumTitle = titleParts.slice(1).join(' - ') || item.title;
+        let artist = 'Various Artists';
+        let albumTitle = item.title || 'Unknown';
 
-        // Build comprehensive notes from available data
-        const notes = [
-          item.country && `Country: ${item.country}`,
-          item.style && `Style: ${Array.isArray(item.style) ? item.style.join(', ') : item.style}`,
-          item.format_quantity && `Quantity: ${item.format_quantity}`,
-        ].filter(Boolean).join(' | ');
-
-        // Fetch master release information for more details
-        let masterInfo = '';
-        if (item.master_id) {
-          try {
-            const masterResponse = await axios.get(
-              `${DISCOGS_API_URL}/masters/${item.master_id}`,
-              {
-                params: { token: DISCOGS_API_TOKEN },
-                headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
-              }
-            );
-
-            if (masterResponse.data) {
-              const yearInfo = masterResponse.data.year ? ` (Original: ${masterResponse.data.year})` : '';
-              const tracksInfo = masterResponse.data.tracklist?.length ? ` | Tracks: ${masterResponse.data.tracklist.length}` : '';
-              if (yearInfo || tracksInfo) {
-                masterInfo = `${yearInfo}${tracksInfo}`;
-              }
-            }
-          } catch (masterErr: any) {
-            // Master release fetch is optional, continue if unavailable
-            if (masterErr.response?.status !== 404) {
-              console.warn(`Master release error for ID ${item.master_id}:`, masterErr.message);
-            }
-          }
+        if (titleParts.length >= 2) {
+          artist = titleParts[0].trim();
+          albumTitle = titleParts.slice(1).join(' - ').trim();
+        } else if (item.artists && item.artists.length > 0) {
+          artist = item.artists[0].name || titleParts[0] || 'Various Artists';
         }
 
-        // Fetch marketplace pricing and community stats for this release
+        // Fetch real marketplace pricing from Discogs
         let price = null;
-        let condition = null;
-        let communityNotes = '';
 
         try {
-          // 1. Try marketplace stats endpoint first (median price + best pricing info)
           const statsResponse = await axios.get(
             `${DISCOGS_API_URL}/marketplace/stats/${item.id}`,
             {
@@ -88,70 +58,29 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
             }
           );
 
-          if (statsResponse.data?.median_price) {
-            const medianPrice = typeof statsResponse.data.median_price === 'string'
-              ? parseFloat(statsResponse.data.median_price)
-              : statsResponse.data.median_price;
-            price = parseFloat(medianPrice.toFixed(2));
-            console.log(`✓ Pricing found for ${item.id}: $${price}`);
-          } else {
-            console.log(`ℹ No median price for release ${item.id} - may have no marketplace listings`);
-          }
+          // Discogs returns lowest_price as an object with value and currency
           if (statsResponse.data?.lowest_price) {
-            // Store lowest price info for condition display
-            const lowestPrice = typeof statsResponse.data.lowest_price === 'string'
-              ? parseFloat(statsResponse.data.lowest_price)
-              : statsResponse.data.lowest_price;
-            condition = `Lowest: $${lowestPrice.toFixed(2)}`;
-          }
-
-          // 2. Try release stats endpoint for community collection data
-          try {
-            const releaseStatsResponse = await axios.get(
-              `${DISCOGS_API_URL}/releases/${item.id}/stats`,
-              {
-                params: { token: DISCOGS_API_TOKEN },
-                headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
-              }
-            );
-
-            if (releaseStatsResponse.data?.community?.have || releaseStatsResponse.data?.community?.want) {
-              const have = releaseStatsResponse.data.community.have || 0;
-              const want = releaseStatsResponse.data.community.want || 0;
-              communityNotes = ` | Collectors: ${have} | Wanted: ${want}`;
-            }
-          } catch (statsErr: any) {
-            // Release stats is optional, continue if unavailable
-          }
-
-          // 3. Fallback: try price suggestions endpoint if marketplace stats doesn't have price
-          if (!price) {
-            const priceResponse = await axios.get(
-              `${DISCOGS_API_URL}/marketplace/price_suggestions/${item.id}`,
-              {
-                params: { token: DISCOGS_API_TOKEN },
-                headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
-              }
-            );
-            if (priceResponse.data?.suggestions) {
-              const suggestions = Object.values(priceResponse.data.suggestions) as any[];
-              if (suggestions.length > 0) {
-                // Get average of all conditions' prices
-                const prices = suggestions
-                  .filter((s: any) => s?.price && typeof s.price === 'number')
-                  .map((s: any) => s.price);
-                if (prices.length > 0) {
-                  price = parseFloat((prices.reduce((a, b) => a + b) / prices.length).toFixed(2));
-                }
-              }
+            const lowestValue = statsResponse.data.lowest_price.value || statsResponse.data.lowest_price;
+            const lowestPrice = parseFloat(lowestValue);
+            if (!isNaN(lowestPrice) && lowestPrice > 0) {
+              price = parseFloat(lowestPrice.toFixed(2));
             }
           }
         } catch (err: any) {
-          // Pricing endpoints not available or no data - continue without price
-          if (err.response?.status !== 404) {
-            console.warn(`Marketplace pricing error for release ${item.id}:`, err.message);
-          }
+          // Marketplace pricing not available - record has no active listings
         }
+
+        // If no marketplace data, set price to null (don't show made-up prices)
+        // This makes it clear when real pricing is unavailable
+        if (!price) {
+          price = null;
+        }
+
+        // Build concise notes from available data
+        const noteParts = [];
+        if (item.country) noteParts.push(item.country);
+        if (item.format_quantity) noteParts.push(`${item.format_quantity} LP${item.format_quantity > 1 ? 's' : ''}`);
+        const notes = noteParts.length > 0 ? noteParts.join(' • ') : 'Vinyl record';
 
         return {
           id: `disc-${item.id}`,
@@ -159,16 +88,16 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
           title: albumTitle,
           artist: artist,
           year: item.year ? parseInt(item.year) : null,
-          label: Array.isArray(item.label) ? item.label[0] : item.label || 'Unknown',
+          label: Array.isArray(item.label) ? item.label[0] : item.label || 'Unknown Label',
           price: price,
-          condition: condition,
-          imageUrl: item.cover_image || item.thumb || 'https://via.placeholder.com/100?text=No+Image',
-          genre: Array.isArray(item.genre) ? item.genre.join(', ') : item.genre || 'Unknown',
-          format: Array.isArray(item.format) ? item.format.join(', ') : item.format || 'Vinyl',
-          rpm: Array.isArray(item.format) && item.format.some((f: string) => f.includes('33')) ? 33 : 45,
+          condition: price ? null : null,
+          imageUrl: item.cover_image || item.thumb || null,
+          genre: Array.isArray(item.genre) ? item.genre.join(', ') : (item.genre || 'Various'),
+          format: Array.isArray(item.format) ? item.format.join(', ') : item.format || 'Vinyl LP',
+          rpm: item.format && Array.isArray(item.format) && item.format.some((f: string) => f.includes('33')) ? 33 : 45,
           pressType: 'Release',
-          catalog: item.catno || 'N/A',
-          notes: (notes + masterInfo + communityNotes) || 'Vinyl record',
+          catalog: item.catno || '',
+          notes: notes,
           masterId: item.master_id,
           resourceUrl: item.resource_url,
         };

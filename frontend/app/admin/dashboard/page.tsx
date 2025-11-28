@@ -85,7 +85,21 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [searchSource, setSearchSource] = useState<'discogs' | 'ebay'>('discogs');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    minYear: '',
+    maxYear: '',
+    condition: '',
+    genre: '',
+    label: ''
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [resultsPerPage] = useState(12);
+  const [selectedForPricing, setSelectedForPricing] = useState<SearchResult | null>(null);
+  const [priceSuggestions, setPriceSuggestions] = useState<any>(null);
+  const [loadingPrices, setLoadingPrices] = useState(false);
 
   const [policies, setPolicies] = useState<PricingPolicy[]>([]);
   const [newPolicyName, setNewPolicyName] = useState('');
@@ -145,24 +159,86 @@ export default function AdminDashboard() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
+    setSearchError(null);
+    setCurrentPage(1);
     try {
       const endpoint = searchSource === 'discogs' ? '/api/search/discogs' : '/api/search/ebay';
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery }),
+        body: JSON.stringify({ query: searchQuery, filters }),
       });
       const data = await res.json();
       if (data.success && data.results) {
         setSearchResults(data.results);
+        if (data.results.length === 0) {
+          setSearchError('No results found. Try a different search query.');
+        }
       } else {
         setSearchResults([]);
+        setSearchError(data.error || 'Search failed. Please try again.');
       }
     } catch (err) {
       console.error('Search failed:', err);
       setSearchResults([]);
+      setSearchError('Network error. Please check your connection and try again.');
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const handleImport = async (result: SearchResult) => {
+    try {
+      const res = await fetch('/api/catalog/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          discogsId: result.discogsId,
+          title: result.title,
+          artist: result.artist,
+          year: result.year,
+          label: result.label,
+          genre: result.genre,
+          imageUrl: result.imageUrl,
+          catalogNumber: result.catalog,
+          format: result.format,
+          rpm: result.rpm,
+          notes: result.notes
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Record imported successfully!');
+        setSearchResults(prev => prev.filter(r => r.id !== result.id));
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert('Failed to import record');
+    }
+  };
+
+  const handleGetPriceSuggestions = async (result: SearchResult) => {
+    setSelectedForPricing(result);
+    setLoadingPrices(true);
+    try {
+      const res = await fetch('/api/marketplace/price_suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discogsId: result.discogsId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPriceSuggestions(data.suggestions);
+      } else {
+        setPriceSuggestions(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch prices:', err);
+      setPriceSuggestions(null);
+    } finally {
+      setLoadingPrices(false);
     }
   };
 
@@ -336,147 +412,412 @@ export default function AdminDashboard() {
 
         {/* SEARCH TAB */}
         {activeTab === 'search' && (
-          <div className="bg-gray-800 rounded-lg p-8">
-            <h2 className="text-2xl font-bold mb-6">Search Discogs & eBay for Vinyl Records</h2>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-8">
+            <h2 className="text-3xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-400">🔍 Search Vinyl Records</h2>
+            <p className="text-gray-400 mb-8">Find records from Discogs and eBay to add to your catalog</p>
 
-            <div className="space-y-4 mb-6">
+            <div className="space-y-5 mb-6">
+              {/* Search Input */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Search Query</label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Enter artist or album name..."
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
-                />
+                <label className="block text-sm font-semibold mb-2 text-gray-300 uppercase tracking-wider">What are you looking for?</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    placeholder="e.g., Pink Floyd, The Beatles, Led Zeppelin..."
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 hover:border-green-500 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 rounded-lg text-white placeholder-gray-500 transition-all"
+                  />
+                  <span className="absolute right-4 top-3 text-gray-500">🎵</span>
+                </div>
               </div>
 
+              {/* Source Selection */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Search Source</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
+                <label className="block text-sm font-semibold mb-3 text-gray-300 uppercase tracking-wider">Search From</label>
+                <div className="flex gap-3">
+                  <label className="flex-1 relative">
                     <input
                       type="radio"
                       value="discogs"
                       checked={searchSource === 'discogs'}
                       onChange={(e) => setSearchSource(e.target.value as 'discogs' | 'ebay')}
-                      className="mr-2"
+                      className="sr-only"
                     />
-                    Discogs
+                    <div className={`px-4 py-3 rounded-lg border-2 transition-all cursor-pointer text-center font-semibold ${
+                      searchSource === 'discogs'
+                        ? 'bg-green-600 border-green-500 text-white'
+                        : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500'
+                    }`}>
+                      🎙️ Discogs
+                    </div>
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex-1 relative">
                     <input
                       type="radio"
                       value="ebay"
                       checked={searchSource === 'ebay'}
                       onChange={(e) => setSearchSource(e.target.value as 'discogs' | 'ebay')}
-                      className="mr-2"
+                      className="sr-only"
                     />
-                    eBay
+                    <div className={`px-4 py-3 rounded-lg border-2 transition-all cursor-pointer text-center font-semibold ${
+                      searchSource === 'ebay'
+                        ? 'bg-green-600 border-green-500 text-white'
+                        : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500'
+                    }`}>
+                      🛒 eBay
+                    </div>
                   </label>
                 </div>
               </div>
 
-              <button
-                onClick={handleSearch}
-                disabled={searchLoading}
-                className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded font-bold transition"
-              >
-                {searchLoading ? 'Searching...' : 'Search'}
-              </button>
+              {/* Search Button */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSearch}
+                  disabled={searchLoading || !searchQuery.trim()}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/50 disabled:shadow-none"
+                >
+                  {searchLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Searching...
+                    </span>
+                  ) : (
+                    '🔍 Search'
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-all duration-300"
+                >
+                  ⚙️ Filters
+                </button>
+              </div>
+
+              {/* Advanced Filters */}
+              {showFilters && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Min Year</label>
+                    <input
+                      type="number"
+                      value={filters.minYear}
+                      onChange={(e) => setFilters({...filters, minYear: e.target.value})}
+                      placeholder="1970"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Max Year</label>
+                    <input
+                      type="number"
+                      value={filters.maxYear}
+                      onChange={(e) => setFilters({...filters, maxYear: e.target.value})}
+                      placeholder="2024"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Condition</label>
+                    <select
+                      value={filters.condition}
+                      onChange={(e) => setFilters({...filters, condition: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                    >
+                      <option value="">Any</option>
+                      <option value="Mint">Mint</option>
+                      <option value="Near Mint">Near Mint</option>
+                      <option value="Very Good">Very Good</option>
+                      <option value="Good">Good</option>
+                      <option value="Fair">Fair</option>
+                      <option value="Poor">Poor</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Genre</label>
+                    <input
+                      type="text"
+                      value={filters.genre}
+                      onChange={(e) => setFilters({...filters, genre: e.target.value})}
+                      placeholder="e.g., Rock"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-gray-300 uppercase">Label</label>
+                    <input
+                      type="text"
+                      value={filters.label}
+                      onChange={(e) => setFilters({...filters, label: e.target.value})}
+                      placeholder="e.g., Atlantic"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
+
+            {searchLoading && (
+              <div className="text-center py-12">
+                <div className="inline-block">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mb-4"></div>
+                  <p className="text-gray-300">Searching {searchSource === 'discogs' ? 'Discogs' : 'eBay'}...</p>
+                </div>
+              </div>
+            )}
+
+            {searchError && !searchLoading && (
+              <div className="bg-red-900 border border-red-700 rounded-lg p-4 text-red-100">
+                ⚠️ {searchError}
+              </div>
+            )}
 
             {searchResults.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-6">Search Results ({searchResults.length})</h3>
-                <div className="space-y-4">
-                  {searchResults.map((result) => (
-                    <div key={result.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden hover:border-green-500 transition-all">
-                      <div className="flex flex-col md:flex-row gap-6 p-6">
-                        {/* Album Art */}
-                        <div className="flex-shrink-0">
-                          <img
-                            src={result.imageUrl}
-                            alt={result.title}
-                            className="h-32 w-32 object-cover rounded-lg shadow-md border border-gray-600"
-                            onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image'}}
-                          />
-                        </div>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-bold">Search Results ({searchResults.length})</h3>
+                  <div className="text-sm text-gray-400">
+                    {Math.ceil(searchResults.length / resultsPerPage)} results found
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                  {searchResults.slice((currentPage - 1) * resultsPerPage, currentPage * resultsPerPage).map((result) => (
+                    <div key={result.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden hover:border-gray-600 transition-all duration-300">
+                      {/* Top Bar */}
+                      <div className="h-1 bg-gradient-to-r from-green-500 to-blue-500"></div>
 
-                        {/* Main Content */}
-                        <div className="flex-grow min-w-0">
-                          {/* Title and Artist */}
-                          <div className="mb-3">
-                            <h4 className="font-bold text-xl text-green-400 mb-1">{result.title}</h4>
-                            <p className="text-gray-300 text-base">by <span className="font-semibold">{result.artist}</span></p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <span className="inline-block px-2 py-1 bg-blue-900 text-blue-200 text-xs font-semibold rounded">Discogs ID: {result.discogsId}</span>
-                              <span className="inline-block px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">{result.year || 'N/A'}</span>
+                      {/* Main Content */}
+                      <div className="p-6">
+                        <div className="flex gap-4 mb-4">
+                          {/* Album Art */}
+                          <div className="flex-shrink-0">
+                            {result.imageUrl ? (
+                              <img
+                                src={result.imageUrl}
+                                alt={result.title}
+                                className="h-28 w-28 object-cover rounded-lg border border-gray-600"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                  const placeholder = e.currentTarget.nextElementSibling as HTMLElement
+                                  if (placeholder) placeholder.style.display = 'flex'
+                                }}
+                              />
+                            ) : null}
+                            <div className={`h-28 w-28 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center ${result.imageUrl ? 'hidden' : ''}`}>
+                              No Cover
                             </div>
                           </div>
 
-                          {/* Details Grid */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
-                            <div>
-                              <p className="text-gray-400 text-xs mb-1">Label</p>
-                              <p className="text-white font-medium">{result.label}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs mb-1">Genre</p>
-                              <p className="text-white font-medium">{result.genre}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs mb-1">Format</p>
-                              <p className="text-white font-medium">{result.format} @ {result.rpm} RPM</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs mb-1">Catalog</p>
-                              <p className="text-white font-medium">{result.catalog}</p>
-                            </div>
-                          </div>
+                          {/* Title + Info */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-lg font-bold text-green-400 mb-2 line-clamp-2">
+                              {result.title}
+                            </h4>
+                            <p className="text-gray-300 text-sm mb-3">
+                              <span className="font-semibold">{result.artist}</span>
+                              {result.year && <span className="text-gray-500"> • {result.year}</span>}
+                            </p>
 
-                          {/* Price and Notes */}
-                          <div className="flex flex-col md:flex-row gap-4 md:items-start">
-                            <div className="flex-grow">
-                              <p className="text-gray-400 text-xs mb-1">Notes</p>
-                              <p className="text-gray-300 text-sm line-clamp-2">{result.notes || 'No additional notes'}</p>
-                            </div>
-                            <div className="flex-shrink-0 text-right">
-                              {result.price !== null ? (
-                                <div>
-                                  <p className="text-gray-400 text-xs mb-1">Market Price</p>
-                                  <p className="text-3xl font-bold text-green-400">${result.price.toFixed(2)}</p>
-                                  {result.condition && (
-                                    <p className="text-gray-400 text-xs mt-1">{result.condition}</p>
-                                  )}
-                                </div>
-                              ) : (
-                                <div>
-                                  <p className="text-gray-400 text-xs">No Pricing</p>
-                                  <p className="text-gray-500 text-xs">Available</p>
-                                </div>
+                            {/* Tags */}
+                            <div className="flex flex-wrap gap-2">
+                              <span className="px-2.5 py-1.5 bg-blue-900/50 text-blue-300 text-xs border border-blue-700/50 rounded font-mono">
+                                ID: {result.discogsId}
+                              </span>
+                              {result.catalog && (
+                                <span className="px-2.5 py-1.5 bg-gray-700/50 text-gray-300 text-xs border border-gray-600/50 rounded truncate">
+                                  {result.catalog}
+                                </span>
                               )}
                             </div>
                           </div>
                         </div>
 
-                        {/* Action Button */}
-                        <div className="flex-shrink-0 md:flex md:flex-col md:justify-start">
-                          <button className="w-full md:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white font-bold transition text-sm">
-                            📥 Import
-                          </button>
+                        {/* Divider */}
+                        <div className="h-px bg-gradient-to-r from-gray-600 via-gray-700 to-gray-600 mb-4"></div>
+
+                        {/* Details Grid */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30">
+                            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Label</p>
+                            <p className="text-white font-medium text-sm truncate">{result.label}</p>
+                          </div>
+                          <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30">
+                            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Genre</p>
+                            <p className="text-white font-medium text-sm truncate">{result.genre}</p>
+                          </div>
+                          <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30">
+                            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">RPM</p>
+                            <p className="text-white font-medium text-sm">{result.rpm}</p>
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="bg-gray-700/40 rounded-lg p-3 border border-gray-600/30 mb-4">
+                          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Details</p>
+                          <p className="text-gray-300 text-sm line-clamp-3">{result.notes}</p>
+                        </div>
+
+                        {/* Price + Action */}
+                        <div className="flex gap-3 items-center">
+                          <div className="flex-1 bg-gray-900/60 rounded-lg p-3 border border-gray-600/30">
+                            {result.price !== null ? (
+                              <>
+                                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Market Price</p>
+                                <p className="text-3xl font-bold text-green-400">${result.price.toFixed(2)}</p>
+                                {result.condition && (
+                                  <p className="text-gray-500 text-xs mt-1">{result.condition}</p>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Price</p>
+                                <p className="text-gray-500 text-sm">No active listings</p>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => handleImport(result)}
+                              className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-xs whitespace-nowrap transition-colors duration-200">
+                              📥 Import
+                            </button>
+                            <button
+                              onClick={() => handleGetPriceSuggestions(result)}
+                              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs whitespace-nowrap transition-colors duration-200">
+                              💰 Prices
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Pagination */}
+                {Math.ceil(searchResults.length / resultsPerPage) > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-8">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
+                    >
+                      ← Previous
+                    </button>
+                    <div className="flex gap-1">
+                      {Array.from({ length: Math.ceil(searchResults.length / resultsPerPage) }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                            currentPage === page
+                              ? 'bg-green-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(searchResults.length / resultsPerPage), prev + 1))}
+                      disabled={currentPage === Math.ceil(searchResults.length / resultsPerPage)}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {!searchLoading && searchQuery && searchResults.length === 0 && (
-              <div className="text-center text-gray-400 py-8">
-                No results found. Try a different search query.
+            {!searchLoading && !searchError && !searchQuery && (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-4">🎵</div>
+                <p className="text-gray-400 text-lg">Start by searching for an artist or album above</p>
+                <p className="text-gray-500 text-sm mt-2">Try searching for Pink Floyd, The Beatles, or any artist you like</p>
+              </div>
+            )}
+
+            {/* Price Suggestions Modal */}
+            {selectedForPricing && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-gray-800 rounded-lg max-w-2xl w-full border border-gray-700 p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-2xl font-bold text-green-400">💰 Market Price Suggestions</h3>
+                    <button
+                      onClick={() => {
+                        setSelectedForPricing(null);
+                        setPriceSuggestions(null);
+                      }}
+                      className="text-gray-400 hover:text-white text-2xl leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="mb-4 pb-4 border-b border-gray-700">
+                    <p className="text-gray-300 font-semibold">{selectedForPricing.title}</p>
+                    <p className="text-gray-500">{selectedForPricing.artist} • {selectedForPricing.year}</p>
+                  </div>
+
+                  {loadingPrices ? (
+                    <div className="text-center py-8">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                      <p className="text-gray-400 mt-2">Fetching price data...</p>
+                    </div>
+                  ) : priceSuggestions ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
+                          <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Lowest Price</p>
+                          <p className="text-2xl font-bold text-blue-400">${priceSuggestions.lowest?.toFixed(2) || 'N/A'}</p>
+                        </div>
+                        <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
+                          <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Average Price</p>
+                          <p className="text-2xl font-bold text-green-400">${priceSuggestions.average?.toFixed(2) || 'N/A'}</p>
+                        </div>
+                        <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
+                          <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Highest Price</p>
+                          <p className="text-2xl font-bold text-yellow-400">${priceSuggestions.highest?.toFixed(2) || 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
+                        <p className="text-gray-500 text-xs font-semibold uppercase mb-2">Recent Sales</p>
+                        <p className="text-gray-400 text-sm">{priceSuggestions.salesCount || 0} listings found in last 30 days</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400">No price data available for this record</p>
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex gap-3">
+                    <button
+                      onClick={() => {
+                        setSelectedForPricing(null);
+                        setPriceSuggestions(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    >
+                      Close
+                    </button>
+                    {selectedForPricing && (
+                      <button
+                        onClick={() => {
+                          handleImport(selectedForPricing);
+                          setSelectedForPricing(null);
+                          setPriceSuggestions(null);
+                        }}
+                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors"
+                      >
+                        Import with Prices
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
