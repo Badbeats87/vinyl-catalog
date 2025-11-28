@@ -16,6 +16,7 @@ interface Submission {
 
 interface SearchResult {
   id: string;
+  discogsId: number;
   title: string;
   artist: string;
   year: number;
@@ -405,7 +406,8 @@ export default function AdminDashboard() {
                           <p className="text-gray-300 text-sm mb-2">by <strong>{result.artist}</strong></p>
                           <p className="text-xs text-gray-400 mb-1">Label: {result.label}</p>
                           <p className="text-xs text-gray-400 mb-1">Year: {result.year || 'N/A'}</p>
-                          <p className="text-xs text-gray-400">Catalog: {result.catalog}</p>
+                          <p className="text-xs text-gray-400 mb-1">Catalog: {result.catalog}</p>
+                          <p className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded mt-1 inline-block">ID: {result.discogsId}</p>
                         </div>
 
                         {/* Format & Details */}
