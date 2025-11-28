@@ -10,7 +10,7 @@ const DISCOGS_API_URL = 'https://api.discogs.com';
 // Search Discogs API for vinyl releases
 router.post('/discogs', async (req: Request, res: Response) => {
   try {
-    const { query } = req.body;
+    const { query, page = 1 } = req.body;
     if (!query) {
       return res.json({ success: false, error: 'Search query required' });
     }
@@ -22,6 +22,7 @@ router.post('/discogs', async (req: Request, res: Response) => {
         token: DISCOGS_API_TOKEN,
         format: 'Vinyl',
         per_page: 100,
+        page: page,
         type: 'release',
       },
       headers: {
@@ -36,6 +37,13 @@ router.post('/discogs', async (req: Request, res: Response) => {
       const artist = titleParts[0] || 'Various Artists';
       const albumTitle = titleParts.slice(1).join(' - ') || item.title;
 
+      // Build comprehensive notes from available data
+      const notes = [
+        item.country && `Country: ${item.country}`,
+        item.style && `Style: ${Array.isArray(item.style) ? item.style.join(', ') : item.style}`,
+        item.format_quantity && `Quantity: ${item.format_quantity}`,
+      ].filter(Boolean).join(' | ');
+
       return {
         id: `disc-${item.id}`,
         title: albumTitle,
@@ -44,13 +52,15 @@ router.post('/discogs', async (req: Request, res: Response) => {
         label: Array.isArray(item.label) ? item.label[0] : item.label || 'Unknown',
         price: null, // Discogs API doesn't return prices
         condition: null,
-        imageUrl: item.thumb || 'https://via.placeholder.com/100?text=No+Image',
+        imageUrl: item.cover_image || item.thumb || 'https://via.placeholder.com/100?text=No+Image',
         genre: Array.isArray(item.genre) ? item.genre.join(', ') : item.genre || 'Unknown',
         format: Array.isArray(item.format) ? item.format.join(', ') : item.format || 'Vinyl',
         rpm: Array.isArray(item.format) && item.format.some((f: string) => f.includes('33')) ? 33 : 45,
         pressType: 'Release',
         catalog: item.catno || 'N/A',
-        notes: `Format: ${Array.isArray(item.format) ? item.format.join(', ') : item.format}`,
+        notes: notes || 'Vinyl record',
+        masterId: item.master_id,
+        resourceUrl: item.resource_url,
       };
     });
 
@@ -60,6 +70,12 @@ router.post('/discogs', async (req: Request, res: Response) => {
       query: query,
       results: results,
       count: results.length,
+      pagination: {
+        page: page,
+        perPage: 100,
+        total: response.data.pagination?.items || results.length,
+        pages: response.data.pagination?.pages || 1,
+      },
     });
   } catch (err: any) {
     console.error('Discogs API error:', err.message);
