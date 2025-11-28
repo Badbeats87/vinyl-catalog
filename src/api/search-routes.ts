@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 
 const router = Router();
 const prisma = new PrismaClient();
+const DISCOGS_API_TOKEN = process.env.DISCOGS_API_TOKEN;
+const DISCOGS_API_URL = 'https://api.discogs.com';
 
 // Search Discogs API for vinyl releases
 router.post('/discogs', async (req: Request, res: Response) => {
@@ -12,220 +15,51 @@ router.post('/discogs', async (req: Request, res: Response) => {
       return res.json({ success: false, error: 'Search query required' });
     }
 
-    // Mock Discogs search results - returns results based on query
-    const discogsDatabase: Record<string, any[]> = {
-      'pink floyd': [
-        {
-          id: 'disc-1',
-          title: 'Dark Side of the Moon',
-          artist: 'Pink Floyd',
-          year: 1973,
-          label: 'Harvest',
-          price: 45.99,
-          condition: 'VG+',
-          imageUrl: 'https://via.placeholder.com/100?text=DSOTM',
-          genre: 'Progressive Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'SHVL 804',
-          notes: 'Gatefold sleeve with poster',
-        },
-        {
-          id: 'disc-3',
-          title: 'The Wall',
-          artist: 'Pink Floyd',
-          year: 1979,
-          label: 'Harvest',
-          price: 52.00,
-          condition: 'VG',
-          imageUrl: 'https://via.placeholder.com/100?text=The+Wall',
-          genre: 'Progressive Rock',
-          format: 'Vinyl 2xLP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'SHSP 411',
-          notes: 'Double album with full poster',
-        },
-        {
-          id: 'disc-21',
-          title: 'Wish You Were Here',
-          artist: 'Pink Floyd',
-          year: 1975,
-          label: 'Harvest',
-          price: 48.50,
-          condition: 'NM',
-          imageUrl: 'https://via.placeholder.com/100?text=WYWH',
-          genre: 'Progressive Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'SHVL 814',
-          notes: 'Reissue with gatefold sleeve',
-        },
-      ],
-      'westside gunn': [
-        {
-          id: 'disc-4',
-          title: 'Pray for Paris',
-          artist: 'Westside Gunn',
-          year: 2020,
-          label: 'Griselda',
-          price: 35.99,
-          condition: 'NM',
-          imageUrl: 'https://via.placeholder.com/100?text=Pray+for+Paris',
-          genre: 'Hip Hop',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Limited Edition',
-          catalog: 'Griselda 001',
-          notes: '500 copies pressed',
-        },
-        {
-          id: 'disc-5',
-          title: 'Adolf Satan',
-          artist: 'Westside Gunn',
-          year: 2021,
-          label: 'Griselda',
-          price: 32.50,
-          condition: 'M',
-          imageUrl: 'https://via.placeholder.com/100?text=Adolf+Satan',
-          genre: 'Hip Hop',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Standard Edition',
-          catalog: 'Griselda 015',
-          notes: 'Comes with artwork insert',
-        },
-      ],
-      'the beatles': [
-        {
-          id: 'disc-2',
-          title: 'Abbey Road',
-          artist: 'The Beatles',
-          year: 1969,
-          label: 'Apple',
-          price: 38.50,
-          condition: 'NM',
-          imageUrl: 'https://via.placeholder.com/100?text=Abbey+Road',
-          genre: 'Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'PCS 7088',
-          notes: 'Stereo version with original packaging',
-        },
-        {
-          id: 'disc-6',
-          title: 'The White Album',
-          artist: 'The Beatles',
-          year: 1968,
-          label: 'Apple',
-          price: 55.00,
-          condition: 'VG+',
-          imageUrl: 'https://via.placeholder.com/100?text=White+Album',
-          genre: 'Rock',
-          format: 'Vinyl 2xLP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'PMC 7067-8',
-          notes: 'Double album with poster and photos',
-        },
-        {
-          id: 'disc-22',
-          title: 'Sgt. Pepper\'s Lonely Hearts Club Band',
-          artist: 'The Beatles',
-          year: 1967,
-          label: 'Parlophone',
-          price: 42.00,
-          condition: 'VG',
-          imageUrl: 'https://via.placeholder.com/100?text=Sgt+Pepper',
-          genre: 'Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'PCS 7027',
-          notes: 'Includes printed inner sleeve and inserts',
-        },
-        {
-          id: 'disc-23',
-          title: 'Revolver',
-          artist: 'The Beatles',
-          year: 1966,
-          label: 'Parlophone',
-          price: 41.00,
-          condition: 'VG+',
-          imageUrl: 'https://via.placeholder.com/100?text=Revolver',
-          genre: 'Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'PCS 7009',
-          notes: 'Black label pressing',
-        },
-      ],
-      'david bowie': [
-        {
-          id: 'disc-24',
-          title: 'The Rise and Fall of Ziggy Stardust and the Spiders from Mars',
-          artist: 'David Bowie',
-          year: 1972,
-          label: 'RCA',
-          price: 44.50,
-          condition: 'VG+',
-          imageUrl: 'https://via.placeholder.com/100?text=Ziggy+Stardust',
-          genre: 'Glam Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'SF 8287',
-          notes: 'Gatefold sleeve with inner sleeve',
-        },
-      ],
-      'led zeppelin': [
-        {
-          id: 'disc-25',
-          title: 'Led Zeppelin IV',
-          artist: 'Led Zeppelin',
-          year: 1971,
-          label: 'Atlantic',
-          price: 50.00,
-          condition: 'VG',
-          imageUrl: 'https://via.placeholder.com/100?text=Zeppelin+IV',
-          genre: 'Hard Rock',
-          format: 'Vinyl LP',
-          rpm: 33,
-          pressType: 'Original Pressing',
-          catalog: 'SD 19129',
-          notes: 'Includes printed sleeve and symbols poster',
-        },
-      ],
-    };
+    // Search real Discogs API with vinyl format filter
+    const response = await axios.get(`${DISCOGS_API_URL}/database/search`, {
+      params: {
+        q: query,
+        token: DISCOGS_API_TOKEN,
+        format: 'Vinyl',
+        per_page: 100,
+        type: 'release',
+      },
+      headers: {
+        'User-Agent': 'VinylCatalogApp/1.0',
+      },
+    });
 
-    // Search for matching results (case-insensitive)
-    const lowerQuery = query.toLowerCase();
-    let mockResults = discogsDatabase[lowerQuery] || [];
-
-    // If no exact match, search by partial match in titles/artists
-    if (mockResults.length === 0) {
-      mockResults = Object.values(discogsDatabase)
-        .flat()
-        .filter(
-          (item) =>
-            item.title.toLowerCase().includes(lowerQuery) ||
-            item.artist.toLowerCase().includes(lowerQuery)
-        );
-    }
+    // Transform Discogs results to our format
+    const results = response.data.results.map((item: any) => ({
+      id: `disc-${item.id}`,
+      title: item.title,
+      artist: item.basic_information?.artists?.[0]?.name || 'Various Artists',
+      year: item.basic_information?.year || null,
+      label: item.basic_information?.labels?.[0]?.name || 'Unknown',
+      price: null, // Discogs API doesn't return prices
+      condition: null,
+      imageUrl: item.basic_information?.thumb || item.basic_information?.cover_image || 'https://via.placeholder.com/100?text=No+Image',
+      genre: item.basic_information?.genres?.join(', ') || 'Unknown',
+      format: item.basic_information?.formats?.map((f: any) => f.name).join(', ') || 'Vinyl',
+      rpm: item.basic_information?.formats?.[0]?.descriptions?.find((d: string) => d.includes('33')) ? 33 : 45,
+      pressType: 'Release',
+      catalog: item.basic_information?.labels?.[0]?.catno || 'N/A',
+      notes: item.basic_information?.formats?.map((f: any) => f.descriptions?.join(', ')).filter(Boolean).join('; ') || 'No additional info',
+    }));
 
     res.json({
       success: true,
       source: 'discogs',
       query: query,
-      results: mockResults,
-      count: mockResults.length,
+      results: results,
+      count: results.length,
     });
-  } catch (err) {
-    res.status(500).json({ success: false, error: String(err) });
+  } catch (err: any) {
+    console.error('Discogs API error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: `Discogs API error: ${err.message}`
+    });
   }
 });
 
