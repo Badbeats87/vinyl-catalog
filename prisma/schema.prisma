@@ -32,7 +32,6 @@ model Release {
   @@index([barcode])
   @@index([artist, title])
   @@index([genre])
-  @@fulltext([artist, title]) // MySQL/PostgreSQL full-text search support
 }
 
 // Market data snapshot from Discogs/eBay

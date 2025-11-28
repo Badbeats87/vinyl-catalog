@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, disconnectPrisma } from './client';
 
 async function main() {
   console.log('Starting database seed...');
@@ -180,5 +178,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   });

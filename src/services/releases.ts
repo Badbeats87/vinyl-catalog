@@ -1,6 +1,16 @@
-import { PrismaClient, Release } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Release } from '@prisma/client';
+import { prisma } from '../db/client';
+import {
+  validateReleaseTitle,
+  validateArtistName,
+  validateBarcode,
+  validateReleaseYear,
+  validateUrl,
+  validateSearchQuery,
+  validateId,
+  validateLimit,
+  validateOffset,
+} from '../validation/inputs';
 
 export interface CreateReleaseInput {
   title: string;
@@ -25,11 +35,26 @@ export interface UpdateReleaseInput {
 }
 
 /**
- * Create a new release
+ * Create a new release with validation
  */
 export async function createRelease(input: CreateReleaseInput): Promise<Release> {
+  const title = validateReleaseTitle(input.title);
+  const artist = validateArtistName(input.artist);
+  const barcode = validateBarcode(input.barcode);
+  const releaseYear = validateReleaseYear(input.releaseYear);
+  const coverArtUrl = validateUrl(input.coverArtUrl, 'Cover art URL');
+
   return prisma.release.create({
-    data: input,
+    data: {
+      title,
+      artist,
+      barcode,
+      releaseYear,
+      coverArtUrl,
+      label: input.label,
+      catalogNumber: input.catalogNumber,
+      genre: input.genre,
+    },
   });
 }
 
@@ -52,33 +77,44 @@ export async function getReleaseByBarcode(barcode: string): Promise<Release | nu
 }
 
 /**
- * Search releases by artist/title with fuzzy matching
+ * Search releases by artist/title with case-insensitive matching
+ * Performs separate queries for each term and merges results
+ * Note: For production, consider pg_trgm extension for fuzzy matching
  */
 export async function searchReleases(query: string, limit = 20): Promise<Release[]> {
-  // Simple search using ILIKE for PostgreSQL
-  // For fuzzy matching, you might integrate with pg_trgm extension
-  const searchTerms = query.split(/\s+/).filter(t => t.length > 0);
+  const validatedQuery = validateSearchQuery(query);
+  const validatedLimit = validateLimit(limit);
+  const searchTerms = validatedQuery.split(/\s+/).filter(t => t.length > 0);
 
   if (searchTerms.length === 0) {
     return [];
   }
 
+  // Build OR conditions for matching any term in artist or title
+  const orConditions = searchTerms.flatMap(term => [
+    {
+      artist: {
+        contains: term,
+        mode: 'insensitive' as const,
+      },
+    },
+    {
+      title: {
+        contains: term,
+        mode: 'insensitive' as const,
+      },
+    },
+  ]);
+
   return prisma.release.findMany({
     where: {
-      OR: [
-        {
-          artist: {
-            search: searchTerms.join(' & '),
-          },
-        },
-        {
-          title: {
-            search: searchTerms.join(' & '),
-          },
-        },
-      ],
+      OR: orConditions,
     },
-    take: limit,
+    take: validatedLimit,
+    orderBy: [
+      { artist: 'asc' },
+      { title: 'asc' },
+    ],
   });
 }
 

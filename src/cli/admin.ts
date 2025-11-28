@@ -8,7 +8,7 @@ import {
   updateRelease,
   deleteRelease,
   countReleases,
-} from '../services/releases.js';
+} from '../services/releases';
 import {
   createPricingPolicy,
   getPricingPolicyById,
@@ -16,7 +16,7 @@ import {
   updatePricingPolicy,
   deactivatePricingPolicy,
   countActivePolicies,
-} from '../services/pricing-policies.js';
+} from '../services/pricing-policies';
 
 const rl = readline.createInterface({
   input: process.stdin,

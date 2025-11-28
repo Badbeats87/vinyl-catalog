@@ -1,6 +1,15 @@
-import { PrismaClient, PricingPolicy } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PricingPolicy } from '@prisma/client';
+import { prisma } from '../db/client';
+import {
+  ValidationError,
+  validatePolicyName,
+  validateScope,
+  validatePercentage,
+  validateWeight,
+  validateWeightSum,
+  validatePrice,
+  validateDays,
+} from '../validation/inputs';
 
 export interface CreatePricingPolicyInput {
   name: string;
@@ -51,37 +60,70 @@ export interface UpdatePricingPolicyInput {
 }
 
 /**
- * Create a new pricing policy
+ * Create a new pricing policy with validation
  */
 export async function createPricingPolicy(
   input: CreatePricingPolicyInput
 ): Promise<PricingPolicy> {
-  // Validate media/sleeve weights sum to 1.0
-  const mediaWeight = input.mediaWeight ?? 0.5;
-  const sleeveWeight = input.sleeveWeight ?? 0.5;
-
-  if (Math.abs((mediaWeight + sleeveWeight) - 1.0) > 0.001) {
-    throw new Error('mediaWeight + sleeveWeight must equal 1.0');
-  }
+  // Validate inputs
+  const name = validatePolicyName(input.name);
+  const scope = validateScope(input.scope);
 
   // Validate scope value is provided when scope is not global
-  if (input.scope !== 'global' && !input.scopeValue) {
-    throw new Error(`scopeValue required for scope="${input.scope}"`);
+  if (scope !== 'global' && !input.scopeValue) {
+    throw new ValidationError(`scopeValue required for scope="${scope}"`);
   }
 
-  // Validate percentages are within reasonable bounds
-  if (input.buyPercentage && (input.buyPercentage < 0.01 || input.buyPercentage > 1.0)) {
-    throw new Error('buyPercentage must be between 0.01 and 1.0');
+  // Validate media/sleeve weights
+  const mediaWeight = validateWeight(input.mediaWeight, 'mediaWeight') ?? 0.5;
+  const sleeveWeight = validateWeight(input.sleeveWeight, 'sleeveWeight') ?? 0.5;
+  validateWeightSum(mediaWeight, sleeveWeight);
+
+  // Validate percentages
+  const buyPercentage = validatePercentage(input.buyPercentage, 0.01, 1.0, 'buyPercentage') ?? 0.55;
+  const sellPercentage = validatePercentage(input.sellPercentage, 1.0, 3.0, 'sellPercentage') ?? 1.25;
+
+  // Validate prices
+  const buyMinCap = validatePrice(input.buyMinCap, 'buyMinCap');
+  const buyMaxCap = validatePrice(input.buyMaxCap, 'buyMaxCap');
+  const sellMinCap = validatePrice(input.sellMinCap, 'sellMinCap');
+  const sellMaxCap = validatePrice(input.sellMaxCap, 'sellMaxCap');
+
+  // Validate cap relationships
+  if (buyMinCap && buyMaxCap && buyMinCap > buyMaxCap) {
+    throw new ValidationError('buyMinCap must be less than or equal to buyMaxCap');
   }
-  if (input.sellPercentage && (input.sellPercentage < 1.0 || input.sellPercentage > 3.0)) {
-    throw new Error('sellPercentage must be between 1.0 and 3.0');
+  if (sellMinCap && sellMaxCap && sellMinCap > sellMaxCap) {
+    throw new ValidationError('sellMinCap must be less than or equal to sellMaxCap');
   }
+
+  // Validate days
+  const offerExpiryDays = validateDays(input.offerExpiryDays, 'offerExpiryDays') ?? 7;
 
   return prisma.pricingPolicy.create({
     data: {
-      ...input,
+      name,
+      description: input.description,
+      scope,
+      scopeValue: input.scopeValue,
+      buyMarketSource: input.buyMarketSource || 'discogs',
+      buyMarketStat: input.buyMarketStat || 'median',
+      buyPercentage,
+      buyMinCap,
+      buyMaxCap,
+      offerExpiryDays,
+      sellMarketSource: input.sellMarketSource || 'discogs',
+      sellMarketStat: input.sellMarketStat || 'median',
+      sellPercentage,
+      sellMinCap,
+      sellMaxCap,
+      applyConditionAdjustment: input.applyConditionAdjustment ?? true,
       mediaWeight,
       sleeveWeight,
+      roundingIncrement: input.roundingIncrement ?? 0.25,
+      requiresManualReview: input.requiresManualReview ?? false,
+      profitMarginTarget: input.profitMarginTarget,
+      isActive: input.isActive ?? true,
     },
   });
 }
@@ -192,28 +234,36 @@ export async function getPolicyForRelease(releaseId: string): Promise<PricingPol
 }
 
 /**
- * Update a pricing policy
+ * Update a pricing policy with validation
  */
 export async function updatePricingPolicy(
   id: string,
   input: UpdatePricingPolicyInput
 ): Promise<PricingPolicy | null> {
   // Validate weights if provided
-  const mediaWeight = input.mediaWeight;
-  const sleeveWeight = input.sleeveWeight;
+  const mediaWeight = validateWeight(input.mediaWeight, 'mediaWeight');
+  const sleeveWeight = validateWeight(input.sleeveWeight, 'sleeveWeight');
 
   if (mediaWeight !== undefined && sleeveWeight !== undefined) {
-    if (Math.abs((mediaWeight + sleeveWeight) - 1.0) > 0.001) {
-      throw new Error('mediaWeight + sleeveWeight must equal 1.0');
-    }
+    validateWeightSum(mediaWeight, sleeveWeight);
   }
 
   // Validate percentages
-  if (input.buyPercentage && (input.buyPercentage < 0.01 || input.buyPercentage > 1.0)) {
-    throw new Error('buyPercentage must be between 0.01 and 1.0');
+  const buyPercentage = validatePercentage(input.buyPercentage, 0.01, 1.0, 'buyPercentage');
+  const sellPercentage = validatePercentage(input.sellPercentage, 1.0, 3.0, 'sellPercentage');
+
+  // Validate prices
+  const buyMinCap = validatePrice(input.buyMinCap, 'buyMinCap');
+  const buyMaxCap = validatePrice(input.buyMaxCap, 'buyMaxCap');
+  const sellMinCap = validatePrice(input.sellMinCap, 'sellMinCap');
+  const sellMaxCap = validatePrice(input.sellMaxCap, 'sellMaxCap');
+
+  // Validate cap relationships
+  if (buyMinCap && buyMaxCap && buyMinCap > buyMaxCap) {
+    throw new ValidationError('buyMinCap must be less than or equal to buyMaxCap');
   }
-  if (input.sellPercentage && (input.sellPercentage < 1.0 || input.sellPercentage > 3.0)) {
-    throw new Error('sellPercentage must be between 1.0 and 3.0');
+  if (sellMinCap && sellMaxCap && sellMinCap > sellMaxCap) {
+    throw new ValidationError('sellMinCap must be less than or equal to sellMaxCap');
   }
 
   try {
@@ -229,7 +279,26 @@ export async function updatePricingPolicy(
     return await prisma.pricingPolicy.update({
       where: { id },
       data: {
-        ...input,
+        name: input.name,
+        description: input.description,
+        buyMarketSource: input.buyMarketSource,
+        buyMarketStat: input.buyMarketStat,
+        buyPercentage,
+        buyMinCap,
+        buyMaxCap,
+        offerExpiryDays: input.offerExpiryDays,
+        sellMarketSource: input.sellMarketSource,
+        sellMarketStat: input.sellMarketStat,
+        sellPercentage,
+        sellMinCap,
+        sellMaxCap,
+        applyConditionAdjustment: input.applyConditionAdjustment,
+        mediaWeight,
+        sleeveWeight,
+        roundingIncrement: input.roundingIncrement,
+        requiresManualReview: input.requiresManualReview,
+        profitMarginTarget: input.profitMarginTarget,
+        isActive: input.isActive,
         version: current.version + 1,
       },
     });
