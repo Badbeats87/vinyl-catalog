@@ -89,11 +89,17 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
           );
 
           if (statsResponse.data?.median_price) {
-            price = parseFloat(statsResponse.data.median_price.toFixed(2));
+            const medianPrice = typeof statsResponse.data.median_price === 'string'
+              ? parseFloat(statsResponse.data.median_price)
+              : statsResponse.data.median_price;
+            price = parseFloat(medianPrice.toFixed(2));
           }
           if (statsResponse.data?.lowest_price) {
             // Store lowest price info for condition display
-            condition = `Lowest: $${statsResponse.data.lowest_price.toFixed(2)}`;
+            const lowestPrice = typeof statsResponse.data.lowest_price === 'string'
+              ? parseFloat(statsResponse.data.lowest_price)
+              : statsResponse.data.lowest_price;
+            condition = `Lowest: $${lowestPrice.toFixed(2)}`;
           }
 
           // 2. Try release stats endpoint for community collection data
