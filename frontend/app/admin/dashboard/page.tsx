@@ -143,6 +143,7 @@ export default function AdminDashboard() {
   };
 
   const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
     setSearchLoading(true);
     try {
       const endpoint = searchSource === 'discogs' ? '/api/search/discogs' : '/api/search/ebay';
@@ -152,11 +153,14 @@ export default function AdminDashboard() {
         body: JSON.stringify({ query: searchQuery }),
       });
       const data = await res.json();
-      if (data.success) {
-        setSearchResults(data.results || []);
+      if (data.success && data.results) {
+        setSearchResults(data.results);
+      } else {
+        setSearchResults([]);
       }
     } catch (err) {
       console.error('Search failed:', err);
+      setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
@@ -385,50 +389,107 @@ export default function AdminDashboard() {
 
             {searchResults.length > 0 && (
               <div>
-                <h3 className="text-lg font-bold mb-4">Search Results ({searchResults.length})</h3>
-                <div className="space-y-4">
+                <h3 className="text-lg font-bold mb-6">Search Results ({searchResults.length})</h3>
+                <div className="space-y-6">
                   {searchResults.map((result) => (
-                    <div key={result.id} className="bg-gray-700 p-4 rounded border border-gray-600 hover:border-green-500 transition">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Album Art */}
+                    <div key={result.id} className="bg-gradient-to-r from-gray-750 to-gray-700 p-6 rounded-lg border-2 border-gray-600 hover:border-green-500 hover:shadow-lg transition-all">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                        {/* Album Art - Column 1 */}
                         <div className="flex justify-center items-center">
                           <img
                             src={result.imageUrl}
                             alt={result.title}
-                            className="h-32 w-32 object-cover rounded border border-gray-500"
-                            onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/100?text=No+Image'}}
+                            className="h-40 w-40 object-cover rounded-lg shadow-md border-2 border-gray-500 hover:border-green-400 transition"
+                            onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image'}}
                           />
                         </div>
 
-                        {/* Basic Info */}
-                        <div>
-                          <h4 className="font-bold text-green-400 mb-2">{result.title}</h4>
-                          <p className="text-gray-300 text-sm mb-2">by <strong>{result.artist}</strong></p>
-                          <p className="text-xs text-gray-400 mb-1">Label: {result.label}</p>
-                          <p className="text-xs text-gray-400 mb-1">Year: {result.year || 'N/A'}</p>
-                          <p className="text-xs text-gray-400 mb-1">Catalog: {result.catalog}</p>
-                          <p className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded mt-1 inline-block">ID: {result.discogsId}</p>
-                        </div>
-
-                        {/* Format & Details */}
-                        <div>
-                          <p className="text-xs font-semibold text-gray-300 mb-2">Format Details</p>
-                          <p className="text-xs text-gray-400 mb-1">Genre: {result.genre}</p>
-                          <p className="text-xs text-gray-400 mb-1">Format: {result.format}</p>
-                          <p className="text-xs text-gray-400 mb-1">RPM: {result.rpm}</p>
-                          <p className="text-xs text-gray-400 mb-1">Type: {result.pressType}</p>
-                          <p className="text-xs text-gray-400">Condition: {result.condition || 'N/A'}</p>
-                        </div>
-
-                        {/* Additional Info & Action */}
-                        <div className="flex flex-col justify-between">
+                        {/* Primary Info - Column 2 */}
+                        <div className="space-y-3">
                           <div>
-                            <p className="text-xs font-semibold text-gray-300 mb-2">Details</p>
-                            <p className="text-xs text-gray-400 line-clamp-4 mb-3">{result.notes}</p>
-                            <p className="text-sm font-bold text-green-400">{result.price ? `$${result.price.toFixed(2)}` : 'Price: N/A'}</p>
+                            <h4 className="font-bold text-lg text-green-400 mb-1">{result.title}</h4>
+                            <p className="text-gray-300 font-semibold text-base">by {result.artist}</p>
                           </div>
-                          <button className="mt-2 w-full px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold transition">
-                            Import →
+                          <div className="border-t border-gray-600 pt-3 space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Label:</span>
+                              <span className="text-white font-medium">{result.label}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Year:</span>
+                              <span className="text-white font-medium">{result.year || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Catalog:</span>
+                              <span className="text-white font-medium">{result.catalog}</span>
+                            </div>
+                          </div>
+                          <div className="pt-2">
+                            <span className="text-xs font-semibold bg-blue-900 text-blue-200 px-3 py-1 rounded-full">Discogs ID: {result.discogsId}</span>
+                          </div>
+                        </div>
+
+                        {/* Format & Technical - Column 3 */}
+                        <div className="space-y-3">
+                          <div className="bg-gray-800 p-3 rounded-lg">
+                            <p className="text-xs font-bold text-yellow-400 mb-2">📀 FORMAT DETAILS</p>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Genre:</span>
+                                <span className="text-white">{result.genre}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Type:</span>
+                                <span className="text-white">{result.format}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">RPM:</span>
+                                <span className="text-white font-bold">{result.rpm}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Pressing:</span>
+                                <span className="text-white">{result.pressType}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Market Info - Column 4 */}
+                        <div className="space-y-3">
+                          <div className="bg-gray-800 p-3 rounded-lg">
+                            <p className="text-xs font-bold text-green-400 mb-2">💰 MARKET DATA</p>
+                            <div className="space-y-2">
+                              {result.price !== null ? (
+                                <>
+                                  <div>
+                                    <p className="text-xs text-gray-400 mb-1">Market Price:</p>
+                                    <p className="text-2xl font-bold text-green-400">${result.price.toFixed(2)}</p>
+                                  </div>
+                                  {result.condition && (
+                                    <div className="border-t border-gray-600 pt-2">
+                                      <p className="text-xs text-gray-400 mb-1">Condition Range:</p>
+                                      <p className="text-sm text-white font-semibold">{result.condition}</p>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <p className="text-xs text-gray-500">No marketplace</p>
+                                  <p className="text-xs text-gray-500">data available</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action & Notes - Column 5 */}
+                        <div className="flex flex-col justify-between space-y-3">
+                          <div className="bg-gray-800 p-3 rounded-lg flex-grow">
+                            <p className="text-xs font-bold text-purple-400 mb-2">📝 NOTES</p>
+                            <p className="text-xs text-gray-300 line-clamp-6">{result.notes || 'No additional notes'}</p>
+                          </div>
+                          <button className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 rounded-lg text-white font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                            <span>📥</span> Import Record
                           </button>
                         </div>
                       </div>
@@ -523,47 +584,81 @@ export default function AdminDashboard() {
 
         {/* ANALYTICS TAB */}
         {activeTab === 'analytics' && (
-          <div>
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Inventory Value</div>
-                <div className="text-3xl font-bold text-green-500">${analytics.inventoryValue.toFixed(2)}</div>
+          <div className="space-y-6">
+            {/* Top Level Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="bg-gradient-to-br from-green-900 to-green-800 p-8 rounded-lg border-l-4 border-green-400 shadow-lg">
+                <p className="text-green-300 text-sm font-bold mb-2">💼 INVENTORY VALUE</p>
+                <p className="text-4xl font-bold text-white">${analytics.inventoryValue.toFixed(2)}</p>
+                <p className="text-xs text-green-200 mt-2">Total stock on hand</p>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Total Sales (30 days)</div>
-                <div className="text-3xl font-bold text-blue-500">${analytics.salesRevenue.toFixed(2)}</div>
+              <div className="bg-gradient-to-br from-blue-900 to-blue-800 p-8 rounded-lg border-l-4 border-blue-400 shadow-lg">
+                <p className="text-blue-300 text-sm font-bold mb-2">📊 TOTAL SALES (30d)</p>
+                <p className="text-4xl font-bold text-white">${analytics.salesRevenue.toFixed(2)}</p>
+                <p className="text-xs text-blue-200 mt-2">Revenue from sales</p>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Gross Profit</div>
-                <div className="text-3xl font-bold text-purple-500">${analytics.totalProfit.toFixed(2)}</div>
+              <div className="bg-gradient-to-br from-purple-900 to-purple-800 p-8 rounded-lg border-l-4 border-purple-400 shadow-lg">
+                <p className="text-purple-300 text-sm font-bold mb-2">💰 GROSS PROFIT</p>
+                <p className="text-4xl font-bold text-white">${analytics.totalProfit.toFixed(2)}</p>
+                <p className="text-xs text-purple-200 mt-2">Net earnings</p>
               </div>
             </div>
 
-            {/* Additional Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Records Added (Week)</div>
-                <div className="text-3xl font-bold text-yellow-500">{analytics.addedThisWeek}</div>
+            {/* Secondary Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-yellow-500 transition">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-yellow-400 font-bold text-sm">🆕 ADDED THIS WEEK</p>
+                  <p className="text-2xl font-bold text-yellow-400">{analytics.addedThisWeek}</p>
+                </div>
+                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-yellow-500" style={{width: `${Math.min(analytics.addedThisWeek * 10, 100)}%`}}></div>
+                </div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Sold (30 days)</div>
-                <div className="text-3xl font-bold text-orange-500">{analytics.recentSalesCount}</div>
+              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-orange-500 transition">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-orange-400 font-bold text-sm">🎵 SOLD (30d)</p>
+                  <p className="text-2xl font-bold text-orange-400">{analytics.recentSalesCount}</p>
+                </div>
+                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-orange-500" style={{width: `${Math.min(analytics.recentSalesCount * 10, 100)}%`}}></div>
+                </div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg">
-                <div className="text-gray-400 text-sm font-semibold mb-2">Avg Profit Margin</div>
-                <div className="text-3xl font-bold text-green-500">{analytics.averageProfitMargin.toFixed(2)}%</div>
+              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-green-500 transition">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-green-400 font-bold text-sm">📈 AVG MARGIN</p>
+                  <p className="text-2xl font-bold text-green-400">{analytics.averageProfitMargin.toFixed(1)}%</p>
+                </div>
+                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-green-500" style={{width: `${Math.min(analytics.averageProfitMargin, 100)}%`}}></div>
+                </div>
               </div>
             </div>
 
             {/* Summary Info */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h3 className="text-lg font-bold mb-4">📈 Business Summary</h3>
-              <div className="space-y-2 text-gray-300">
-                <p>• Cost of inventory sold: ${analytics.salesRevenue.toFixed(2)}</p>
-                <p>• Revenue earned: ${(analytics.salesRevenue + analytics.totalProfit).toFixed(2)}</p>
-                <p>• Profit generated: ${analytics.totalProfit.toFixed(2)}</p>
-                <p>• Average markup: {analytics.averageProfitMargin.toFixed(2)}% above cost</p>
+            <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg p-8 border border-gray-600">
+              <h3 className="text-2xl font-bold mb-6 text-white">📈 Business Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
+                    <span className="text-gray-300 font-semibold">Cost of Inventory Sold:</span>
+                    <span className="text-white font-bold text-lg">${analytics.salesRevenue.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
+                    <span className="text-gray-300 font-semibold">Revenue Earned:</span>
+                    <span className="text-green-400 font-bold text-lg">${(analytics.salesRevenue + analytics.totalProfit).toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
+                    <span className="text-gray-300 font-semibold">Profit Generated:</span>
+                    <span className="text-blue-400 font-bold text-lg">${analytics.totalProfit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
+                    <span className="text-gray-300 font-semibold">Average Markup:</span>
+                    <span className="text-purple-400 font-bold text-lg">{analytics.averageProfitMargin.toFixed(2)}% above cost</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
