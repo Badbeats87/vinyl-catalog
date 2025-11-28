@@ -1,205 +1,139 @@
-/**
- * Pricing API Routes
- * Endpoints for requesting pricing quotes and viewing audit logs
- */
-import { prisma } from '../db/client';
-import { getPricingPolicyById, getPolicyForRelease } from '../services/pricing-policies';
-import { getFullPricingQuote, getPricingAuditLogs, getPricingAuditLogsByPolicy } from '../services/pricing';
-/**
- * Request a pricing quote for a release
- * Returns both buy offer and sell list price with breakdown
- */
-export async function getPricingQuote(request) {
+import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
+const router = Router();
+const prisma = new PrismaClient();
+// Get all pricing policies
+router.get('/policies', async (req, res) => {
     try {
-        // Validate release exists
-        const release = await prisma.release.findUnique({
-            where: { id: request.releaseId },
+        const policies = await prisma.pricingPolicy.findMany({
+            orderBy: { createdAt: 'desc' },
         });
-        if (!release) {
-            return {
-                success: false,
-                error: {
-                    code: 'RELEASE_NOT_FOUND',
-                    message: `Release not found: ${request.releaseId}`,
-                },
-            };
-        }
-        // Get pricing policy
-        let policy;
-        if (request.policyId) {
-            policy = await getPricingPolicyById(request.policyId);
-            if (!policy) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'POLICY_NOT_FOUND',
-                        message: `Pricing policy not found: ${request.policyId}`,
-                    },
-                };
-            }
-        }
-        else {
-            // Use default policy for release
-            policy = await getPolicyForRelease(request.releaseId);
-            if (!policy) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'NO_POLICY_FOUND',
-                        message: `No pricing policy found for release ${request.releaseId}`,
-                    },
-                };
-            }
-        }
-        // Validate conditions exist
-        const mediaCondition = await prisma.conditionTier.findUnique({
-            where: { name: request.conditionMedia },
+        res.json({ success: true, policies });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Get active pricing policy
+router.get('/policy/active', async (req, res) => {
+    try {
+        const policy = await prisma.pricingPolicy.findFirst({
+            where: { isActive: true, scope: 'global' },
         });
-        const sleeveCondition = await prisma.conditionTier.findUnique({
-            where: { name: request.conditionSleeve },
-        });
-        if (!mediaCondition || !sleeveCondition) {
-            return {
-                success: false,
-                error: {
-                    code: 'INVALID_CONDITION',
-                    message: `Invalid condition tier(s): media=${request.conditionMedia}, sleeve=${request.conditionSleeve}`,
-                },
-            };
-        }
-        // Calculate pricing
-        const quote = await getFullPricingQuote(request.releaseId, policy, request.conditionMedia, request.conditionSleeve);
-        return {
-            success: true,
+        res.json({ success: true, policy });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Create new pricing policy
+router.post('/policies', async (req, res) => {
+    try {
+        const { name, description, buyMarketSource, buyMarketStat, buyPercentage, sellMarketSource, sellMarketStat, sellPercentage, applyConditionAdjustment, roundingIncrement, } = req.body;
+        const policy = await prisma.pricingPolicy.create({
             data: {
-                releaseId: release.id,
-                releaseTitle: release.title,
-                releaseArtist: release.artist,
-                policyId: policy.id,
-                policyName: policy.name,
-                policyVersion: policy.version,
-                buyOffer: quote.buyOffer,
-                sellListPrice: quote.sellListPrice,
-                breakdown: {
-                    buy: quote.breakdown.buy,
-                    sell: quote.breakdown.sell,
-                },
-                requiresManualReview: quote.requiresManualReview,
-                auditLogs: quote.auditLogs,
+                name,
+                description,
+                scope: 'global',
+                buyMarketSource: buyMarketSource || 'discogs',
+                buyMarketStat: buyMarketStat || 'median',
+                buyPercentage: buyPercentage || 0.55,
+                sellMarketSource: sellMarketSource || 'discogs',
+                sellMarketStat: sellMarketStat || 'median',
+                sellPercentage: sellPercentage || 1.25,
+                applyConditionAdjustment: applyConditionAdjustment !== false,
+                roundingIncrement: roundingIncrement || 0.25,
+                isActive: false,
             },
-        };
-    }
-    catch (error) {
-        return {
-            success: false,
-            error: {
-                code: 'INTERNAL_ERROR',
-                message: error instanceof Error ? error.message : 'Unknown error occurred',
-            },
-        };
-    }
-}
-/**
- * Get pricing audit logs for a release
- */
-export async function getAuditLogsForRelease(releaseId, limit = 50, offset = 0) {
-    try {
-        // Validate release exists
-        const release = await prisma.release.findUnique({
-            where: { id: releaseId },
         });
-        if (!release) {
-            return {
-                success: false,
-                error: {
-                    code: 'RELEASE_NOT_FOUND',
-                    message: `Release not found: ${releaseId}`,
-                },
-            };
+        res.json({ success: true, message: 'Policy created', policy });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Update pricing policy
+router.put('/policies/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, buyMarketSource, buyMarketStat, buyPercentage, sellMarketSource, sellMarketStat, sellPercentage, applyConditionAdjustment, roundingIncrement, isActive, } = req.body;
+        const policy = await prisma.pricingPolicy.update({
+            where: { id },
+            data: {
+                name,
+                description,
+                buyMarketSource,
+                buyMarketStat,
+                buyPercentage,
+                sellMarketSource,
+                sellMarketStat,
+                sellPercentage,
+                applyConditionAdjustment,
+                roundingIncrement,
+                isActive,
+                version: { increment: 1 },
+            },
+        });
+        res.json({ success: true, message: 'Policy updated', policy });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Calculate price using a policy
+router.post('/calculate', async (req, res) => {
+    try {
+        const { policyId, releaseId, discogsPrice, ebayPrice, conditionMedia, conditionSleeve, calculationType, } = req.body;
+        const policy = await prisma.pricingPolicy.findUnique({
+            where: { id: policyId },
+        });
+        if (!policy) {
+            res.status(404).json({ success: false, error: 'Policy not found' });
+            return;
         }
-        const { logs, total } = await getPricingAuditLogs(releaseId, limit, offset);
-        return {
-            success: true,
+        // Select market price based on policy
+        let basePrice = 0;
+        if (policy.buyMarketSource === 'discogs' && discogsPrice) {
+            basePrice = discogsPrice;
+        }
+        else if (policy.buyMarketSource === 'ebay' && ebayPrice) {
+            basePrice = ebayPrice;
+        }
+        else if (policy.buyMarketSource === 'hybrid') {
+            basePrice = ((discogsPrice || 0) + (ebayPrice || 0)) / 2;
+        }
+        // Apply percentage
+        const percentage = calculationType === 'sell' ? policy.sellPercentage : policy.buyPercentage;
+        let calculatedPrice = basePrice * percentage;
+        // Round
+        calculatedPrice = Math.round(calculatedPrice / policy.roundingIncrement) * policy.roundingIncrement;
+        // Log calculation
+        const audit = await prisma.pricingCalculationAudit.create({
             data: {
                 releaseId,
-                logs: logs.map((log) => ({
-                    id: log.id,
-                    calculationType: log.calculationType,
-                    conditionMedia: log.conditionMedia,
-                    conditionSleeve: log.conditionSleeve,
-                    marketPrice: log.marketPrice,
-                    calculatedPrice: log.calculatedPrice,
-                    policyId: log.policyId,
-                    policyVersion: log.policy?.version,
-                    marketSnapshotId: log.marketSnapshotId,
-                    createdAt: log.createdAt,
-                    breakdown: log.calculationDetails ? JSON.parse(log.calculationDetails) : undefined,
-                })),
-                total,
-                limit,
-                offset,
-            },
-        };
-    }
-    catch (error) {
-        return {
-            success: false,
-            error: {
-                code: 'INTERNAL_ERROR',
-                message: error instanceof Error ? error.message : 'Unknown error occurred',
-            },
-        };
-    }
-}
-/**
- * Get pricing audit logs for a policy
- */
-export async function getAuditLogsForPolicy(policyId, limit = 50, offset = 0) {
-    try {
-        // Validate policy exists
-        const policy = await getPricingPolicyById(policyId);
-        if (!policy) {
-            return {
-                success: false,
-                error: {
-                    code: 'POLICY_NOT_FOUND',
-                    message: `Pricing policy not found: ${policyId}`,
-                },
-            };
-        }
-        const { logs, total } = await getPricingAuditLogsByPolicy(policyId, limit, offset);
-        return {
-            success: true,
-            data: {
                 policyId,
-                logs: logs.map((log) => ({
-                    id: log.id,
-                    releaseId: log.releaseId,
-                    releaseTitle: log.release?.title,
-                    releaseArtist: log.release?.artist,
-                    calculationType: log.calculationType,
-                    conditionMedia: log.conditionMedia,
-                    conditionSleeve: log.conditionSleeve,
-                    marketPrice: log.marketPrice,
-                    calculatedPrice: log.calculatedPrice,
-                    marketSnapshotId: log.marketSnapshotId,
-                    createdAt: log.createdAt,
-                    breakdown: log.calculationDetails ? JSON.parse(log.calculationDetails) : undefined,
-                })),
-                total,
-                limit,
-                offset,
+                calculationType: calculationType || 'buy_offer',
+                conditionMedia,
+                conditionSleeve,
+                marketPrice: basePrice,
+                calculatedPrice,
+                calculationDetails: JSON.stringify({
+                    basePrice,
+                    percentage,
+                    beforeRounding: basePrice * percentage,
+                    afterRounding: calculatedPrice,
+                }),
             },
-        };
+        });
+        res.json({
+            success: true,
+            calculatedPrice,
+            audit,
+        });
     }
-    catch (error) {
-        return {
-            success: false,
-            error: {
-                code: 'INTERNAL_ERROR',
-                message: error instanceof Error ? error.message : 'Unknown error occurred',
-            },
-        };
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
     }
-}
+});
+export default router;
 //# sourceMappingURL=pricing-routes.js.map

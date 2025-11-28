@@ -110,7 +110,7 @@ router.put('/policies/:id', async (req: Request, res: Response) => {
 });
 
 // Calculate price using a policy
-router.post('/calculate', async (req: Request, res: Response) => {
+router.post('/calculate', async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       policyId,
@@ -127,7 +127,8 @@ router.post('/calculate', async (req: Request, res: Response) => {
     });
 
     if (!policy) {
-      return res.status(404).json({ success: false, error: 'Policy not found' });
+      res.status(404).json({ success: false, error: 'Policy not found' });
+      return;
     }
 
     // Select market price based on policy

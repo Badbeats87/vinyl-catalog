@@ -87,9 +87,9 @@ export declare function getReleaseWithDetails(id: string): Promise<({
     }[];
 } & {
     id: string;
-    genre: string | null;
     createdAt: Date;
     updatedAt: Date;
+    genre: string | null;
     title: string;
     artist: string;
     label: string | null;

@@ -8,11 +8,12 @@ const DISCOGS_API_TOKEN = process.env.DISCOGS_API_TOKEN;
 const DISCOGS_API_URL = 'https://api.discogs.com';
 
 // Search Discogs API for vinyl releases
-router.post('/discogs', async (req: Request, res: Response) => {
+router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
   try {
     const { query, page = 1 } = req.body;
     if (!query) {
-      return res.json({ success: false, error: 'Search query required' });
+      res.json({ success: false, error: 'Search query required' });
+      return;
     }
 
     // Search real Discogs API with vinyl format filter
@@ -187,11 +188,12 @@ router.post('/discogs', async (req: Request, res: Response) => {
 });
 
 // Search eBay API for vinyl releases
-router.post('/ebay', async (req: Request, res: Response) => {
+router.post('/ebay', async (req: Request, res: Response): Promise<void> => {
   try {
     const { query } = req.body;
     if (!query) {
-      return res.json({ success: false, error: 'Search query required' });
+      res.json({ success: false, error: 'Search query required' });
+      return;
     }
 
     // Mock eBay database with query-aware results
@@ -396,12 +398,13 @@ router.post('/ebay', async (req: Request, res: Response) => {
 });
 
 // Import a release and create/update in database
-router.post('/import-release', async (req: Request, res: Response) => {
+router.post('/import-release', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, artist, year, label, imageUrl, source } = req.body;
+    const { title, artist, year, label, imageUrl } = req.body;
 
     if (!title || !artist) {
-      return res.json({ success: false, error: 'Title and artist required' });
+      res.json({ success: false, error: 'Title and artist required' });
+      return;
     }
 
     // Check if release already exists
