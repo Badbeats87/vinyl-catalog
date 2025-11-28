@@ -20,8 +20,17 @@ interface SearchResult {
   artist: string;
   year: number;
   label: string;
-  price: number;
-  condition: string;
+  price: number | null;
+  condition: string | null;
+  imageUrl: string;
+  genre: string;
+  format: string;
+  rpm: number;
+  pressType: string;
+  catalog: string;
+  notes: string;
+  masterId?: number;
+  resourceUrl?: string;
 }
 
 interface PricingPolicy {
@@ -376,23 +385,50 @@ export default function AdminDashboard() {
             {searchResults.length > 0 && (
               <div>
                 <h3 className="text-lg font-bold mb-4">Search Results ({searchResults.length})</h3>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {searchResults.map((result) => (
-                    <div key={result.id} className="bg-gray-700 p-4 rounded border border-gray-600">
-                      <div className="flex justify-between items-start mb-2">
+                    <div key={result.id} className="bg-gray-700 p-4 rounded border border-gray-600 hover:border-green-500 transition">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Album Art */}
+                        <div className="flex justify-center items-center">
+                          <img
+                            src={result.imageUrl}
+                            alt={result.title}
+                            className="h-32 w-32 object-cover rounded border border-gray-500"
+                            onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/100?text=No+Image'}}
+                          />
+                        </div>
+
+                        {/* Basic Info */}
                         <div>
-                          <h4 className="font-bold">{result.title}</h4>
-                          <p className="text-gray-300">{result.artist}</p>
+                          <h4 className="font-bold text-green-400 mb-2">{result.title}</h4>
+                          <p className="text-gray-300 text-sm mb-2">by <strong>{result.artist}</strong></p>
+                          <p className="text-xs text-gray-400 mb-1">Label: {result.label}</p>
+                          <p className="text-xs text-gray-400 mb-1">Year: {result.year || 'N/A'}</p>
+                          <p className="text-xs text-gray-400">Catalog: {result.catalog}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-400">{result.price ? `$${result.price.toFixed(2)}` : 'N/A'}</p>
-                          <p className="text-xs text-gray-400">{result.label}</p>
+
+                        {/* Format & Details */}
+                        <div>
+                          <p className="text-xs font-semibold text-gray-300 mb-2">Format Details</p>
+                          <p className="text-xs text-gray-400 mb-1">Genre: {result.genre}</p>
+                          <p className="text-xs text-gray-400 mb-1">Format: {result.format}</p>
+                          <p className="text-xs text-gray-400 mb-1">RPM: {result.rpm}</p>
+                          <p className="text-xs text-gray-400 mb-1">Type: {result.pressType}</p>
+                          <p className="text-xs text-gray-400">Condition: {result.condition || 'N/A'}</p>
                         </div>
-                      </div>
-                      <div className="text-sm text-gray-400 flex justify-between">
-                        <span>{result.year || 'N/A'}</span>
-                        <span>{result.condition || 'N/A'}</span>
-                        <button className="text-green-400 hover:text-green-300 font-semibold">Import →</button>
+
+                        {/* Additional Info & Action */}
+                        <div className="flex flex-col justify-between">
+                          <div>
+                            <p className="text-xs font-semibold text-gray-300 mb-2">Details</p>
+                            <p className="text-xs text-gray-400 line-clamp-4 mb-3">{result.notes}</p>
+                            <p className="text-sm font-bold text-green-400">{result.price ? `$${result.price.toFixed(2)}` : 'Price: N/A'}</p>
+                          </div>
+                          <button className="mt-2 w-full px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold transition">
+                            Import →
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
