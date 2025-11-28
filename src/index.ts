@@ -14,11 +14,15 @@ import { authenticate, requireAdmin, requireSeller, requireBuyer, allowImpersona
 
 // Import all route handlers
 import * as authRoutes from './api/auth-routes';
-import * as pricingRoutes from './api/pricing-routes';
 import * as sellerRoutes from './api/seller-routes';
 import * as adminRoutes from './api/admin-routes';
 import * as buyerRoutes from './api/buyer-routes';
 import * as buyerCheckoutRoutes from './api/buyer-checkout-routes';
+
+// Import Router-based routes
+import searchRouter from './api/search-routes';
+import pricingRouter from './api/pricing-routes';
+import analyticsRouter from './api/analytics-routes';
 
 // Initialize Express app
 const app: Express = express();
@@ -77,47 +81,22 @@ app.post('/api/auth/login', async (req: Request, res: Response, next: NextFuncti
 });
 
 // ============================================================================
-// PRICING API ROUTES
+// PRICING API ROUTES (Router-based)
 // ============================================================================
 
-app.post('/api/pricing/quote', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const response = await pricingRoutes.getPricingQuote(req.body);
-    res.status(response.success ? 200 : 400).json(response);
-  } catch (error) {
-    next(error);
-  }
-});
+app.use('/api/pricing', pricingRouter);
 
-app.get('/api/pricing/audit-logs/release/:releaseId', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-    const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-    const response = await pricingRoutes.getAuditLogsForRelease(
-      req.params.releaseId,
-      limit,
-      offset
-    );
-    res.status(response.success ? 200 : 400).json(response);
-  } catch (error) {
-    next(error);
-  }
-});
+// ============================================================================
+// SEARCH API ROUTES (Router-based)
+// ============================================================================
 
-app.get('/api/pricing/audit-logs/policy/:policyId', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-    const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-    const response = await pricingRoutes.getAuditLogsForPolicy(
-      req.params.policyId,
-      limit,
-      offset
-    );
-    res.status(response.success ? 200 : 400).json(response);
-  } catch (error) {
-    next(error);
-  }
-});
+app.use('/api/search', searchRouter);
+
+// ============================================================================
+// ANALYTICS API ROUTES (Router-based)
+// ============================================================================
+
+app.use('/api/analytics', analyticsRouter);
 
 // ============================================================================
 // SELLER API ROUTES (Protected - Seller Only)

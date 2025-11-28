@@ -29,6 +29,7 @@ model Release {
   submissionItems SubmissionItem[]
   inventoryLots   InventoryLot[]
   pricingAudits   PricingCalculationAudit[]
+  salesHistory    SalesHistory[]
 
   @@index([barcode])
   @@index([artist, title])
@@ -210,6 +211,7 @@ model InventoryLot {
   // Relations
   cartItems       CartItem[]
   orderItems      OrderItem[]
+  salesHistory    SalesHistory[]
 
   @@index([releaseId])
   @@index([status])
@@ -428,5 +430,46 @@ model ChannelConfig {
   updatedAt       DateTime @updatedAt
 
   @@index([isPublic])
+}
+
+// Sales history for analytics and pricing strategies
+model SalesHistory {
+  id              String   @id @default(cuid())
+  lotId           String
+  lot             InventoryLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  releaseId       String
+  release         Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  // What we paid for it
+  costBasis       Float
+
+  // What we sold it for
+  salePricePerUnit Float
+  quantity        Int      @default(1)
+  totalSalePrice  Float    // quantity * salePricePerUnit
+
+  // Profit metrics
+  grossProfit     Float    // totalSalePrice - (costBasis * quantity)
+  profitMargin    Float    // grossProfit / totalSalePrice (as decimal, e.g., 0.35 for 35%)
+
+  // Condition info at time of sale
+  conditionMedia  String   @db.VarChar(50)
+  conditionSleeve String   @db.VarChar(50)
+
+  // Market context at time of sale
+  discogsPrice    Float?   // Discogs median price at time of sale
+  ebayPrice       Float?   // eBay median price at time of sale
+
+  // Sale channel
+  channel         String   @db.VarChar(50) // "web", "store_walkIn", etc.
+
+  soldAt          DateTime @default(now()) // When the sale was recorded
+
+  @@index([releaseId])
+  @@index([lotId])
+  @@index([soldAt])
+  @@index([channel])
+  @@index([profitMargin])
 }
 
