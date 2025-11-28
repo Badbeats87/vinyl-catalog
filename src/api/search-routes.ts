@@ -80,11 +80,17 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
               }
             );
 
-            // Get marketplace stats for all versions to find lowest price
+            // Get marketplace stats for vinyl versions only to find lowest price
             let lowestPrice: number | null = null;
-            const versions = versionsResponse.data?.versions || [];
+            const allVersions = versionsResponse.data?.versions || [];
 
-            for (const version of versions.slice(0, 20)) {
+            // Filter to vinyl format only
+            const vinylVersions = allVersions.filter((v: any) => {
+              const format = v.format || v.formats?.[0] || '';
+              return format.toLowerCase().includes('vinyl') || format.toLowerCase().includes('lp');
+            });
+
+            for (const version of vinylVersions.slice(0, 20)) {
               try {
                 const statsResponse = await axios.get(
                   `${DISCOGS_API_URL}/marketplace/stats/${version.id}`,
