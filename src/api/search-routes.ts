@@ -50,32 +50,77 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
           artist = item.artists[0].name || titleParts[0] || 'Various Artists';
         }
 
-        // Fetch real marketplace pricing from Discogs in requested currency
+        // Fetch master release pricing (lowest price across all versions)
         let price = null;
+        let masterId = item.master_id;
 
         try {
-          const statsResponse = await axios.get(
-            `${DISCOGS_API_URL}/marketplace/stats/${item.id}`,
-            {
-              params: { token: DISCOGS_API_TOKEN, curr_abbr: currencyCode },
-              headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
-            }
-          );
+          // First, try to get pricing from the master release
+          if (masterId) {
+            const versionsResponse = await axios.get(
+              `${DISCOGS_API_URL}/masters/${masterId}/versions`,
+              {
+                params: { token: DISCOGS_API_TOKEN, per_page: 100 },
+                headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
+              }
+            );
 
-          // Discogs returns lowest_price as an object with value and currency
-          if (statsResponse.data?.lowest_price) {
-            const lowestValue = statsResponse.data.lowest_price.value || statsResponse.data.lowest_price;
-            const lowestPrice = parseFloat(lowestValue);
-            if (!isNaN(lowestPrice) && lowestPrice > 0) {
+            // Get marketplace stats for all versions to find lowest price
+            let lowestPrice: number | null = null;
+            const versions = versionsResponse.data?.versions || [];
+
+            for (const version of versions.slice(0, 20)) {
+              try {
+                const statsResponse = await axios.get(
+                  `${DISCOGS_API_URL}/marketplace/stats/${version.id}`,
+                  {
+                    params: { token: DISCOGS_API_TOKEN, curr_abbr: currencyCode },
+                    headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
+                  }
+                );
+
+                if (statsResponse.data?.lowest_price) {
+                  const lowestValue = statsResponse.data.lowest_price.value || statsResponse.data.lowest_price;
+                  const versionPrice = parseFloat(lowestValue);
+                  if (!isNaN(versionPrice) && versionPrice > 0) {
+                    if (!lowestPrice || versionPrice < lowestPrice) {
+                      lowestPrice = versionPrice;
+                    }
+                  }
+                }
+              } catch (err) {
+                // Continue to next version
+              }
+            }
+
+            if (lowestPrice && lowestPrice > 0) {
               price = parseFloat(lowestPrice.toFixed(2));
             }
           }
+
+          // Fallback: if no master data, try individual release
+          if (!price) {
+            const statsResponse = await axios.get(
+              `${DISCOGS_API_URL}/marketplace/stats/${item.id}`,
+              {
+                params: { token: DISCOGS_API_TOKEN, curr_abbr: currencyCode },
+                headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
+              }
+            );
+
+            if (statsResponse.data?.lowest_price) {
+              const lowestValue = statsResponse.data.lowest_price.value || statsResponse.data.lowest_price;
+              const releasePrice = parseFloat(lowestValue);
+              if (!isNaN(releasePrice) && releasePrice > 0) {
+                price = parseFloat(releasePrice.toFixed(2));
+              }
+            }
+          }
         } catch (err: any) {
-          // Marketplace pricing not available - record has no active listings
+          // Marketplace pricing not available
         }
 
-        // If no marketplace data, set price to null (don't show made-up prices)
-        // This makes it clear when real pricing is unavailable
+        // If no marketplace data, set price to null
         if (!price) {
           price = null;
         }

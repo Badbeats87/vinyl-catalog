@@ -204,16 +204,10 @@ export default function CreateListing() {
                               <p className="text-gray-400 text-sm mb-3">{record.label} • {record.genre}</p>
                               <div className="flex gap-3">
                                 {record.price && (
-                                  <>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Market Price</p>
-                                      <p className="font-semibold text-green-400">${record.price.toFixed(2)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">We Pay</p>
-                                      <p className="font-semibold text-blue-400">${(Math.round(record.price * 0.55 * 100) / 100).toFixed(2)}</p>
-                                    </div>
-                                  </>
+                                  <div>
+                                    <p className="text-xs text-gray-500">We Pay</p>
+                                    <p className="font-semibold text-green-400">${(Math.round(record.price * 0.55 * 100) / 100).toFixed(2)}</p>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -269,17 +263,10 @@ export default function CreateListing() {
                 </div>
 
                 {/* Pricing Display */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-900 border border-blue-700 p-6 rounded">
-                    <p className="text-blue-300 text-sm font-bold uppercase mb-2">Discogs Market Price</p>
-                    <p className="text-3xl font-bold text-blue-400">${selectedRecord.price?.toFixed(2) || 'N/A'}</p>
-                    <p className="text-xs text-blue-300 mt-2">Based on lowest active listing</p>
-                  </div>
-                  <div className="bg-green-900 border border-green-700 p-6 rounded">
-                    <p className="text-green-300 text-sm font-bold uppercase mb-2">💰 We Will Buy For</p>
-                    <p className="text-3xl font-bold text-green-400">${buyPrice?.toFixed(2) || '0.00'}</p>
-                    <p className="text-xs text-green-300 mt-2">Fixed buying price (55% of market)</p>
-                  </div>
+                <div className="bg-green-900 border border-green-700 p-8 rounded text-center">
+                  <p className="text-green-300 text-sm font-bold uppercase mb-3">💰 We Will Buy For</p>
+                  <p className="text-5xl font-bold text-green-400 mb-2">${buyPrice?.toFixed(2) || '0.00'}</p>
+                  <p className="text-xs text-green-300">Based on master release lowest price</p>
                 </div>
               </>
             ) : (
