@@ -390,106 +390,81 @@ export default function AdminDashboard() {
             {searchResults.length > 0 && (
               <div>
                 <h3 className="text-lg font-bold mb-6">Search Results ({searchResults.length})</h3>
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {searchResults.map((result) => (
-                    <div key={result.id} className="bg-gradient-to-r from-gray-750 to-gray-700 p-6 rounded-lg border-2 border-gray-600 hover:border-green-500 hover:shadow-lg transition-all">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                        {/* Album Art - Column 1 */}
-                        <div className="flex justify-center items-center">
+                    <div key={result.id} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden hover:border-green-500 transition-all">
+                      <div className="flex flex-col md:flex-row gap-6 p-6">
+                        {/* Album Art */}
+                        <div className="flex-shrink-0">
                           <img
                             src={result.imageUrl}
                             alt={result.title}
-                            className="h-40 w-40 object-cover rounded-lg shadow-md border-2 border-gray-500 hover:border-green-400 transition"
+                            className="h-32 w-32 object-cover rounded-lg shadow-md border border-gray-600"
                             onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/150?text=No+Image'}}
                           />
                         </div>
 
-                        {/* Primary Info - Column 2 */}
-                        <div className="space-y-3">
-                          <div>
-                            <h4 className="font-bold text-lg text-green-400 mb-1">{result.title}</h4>
-                            <p className="text-gray-300 font-semibold text-base">by {result.artist}</p>
-                          </div>
-                          <div className="border-t border-gray-600 pt-3 space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Label:</span>
-                              <span className="text-white font-medium">{result.label}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Year:</span>
-                              <span className="text-white font-medium">{result.year || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">Catalog:</span>
-                              <span className="text-white font-medium">{result.catalog}</span>
+                        {/* Main Content */}
+                        <div className="flex-grow min-w-0">
+                          {/* Title and Artist */}
+                          <div className="mb-3">
+                            <h4 className="font-bold text-xl text-green-400 mb-1">{result.title}</h4>
+                            <p className="text-gray-300 text-base">by <span className="font-semibold">{result.artist}</span></p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className="inline-block px-2 py-1 bg-blue-900 text-blue-200 text-xs font-semibold rounded">Discogs ID: {result.discogsId}</span>
+                              <span className="inline-block px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">{result.year || 'N/A'}</span>
                             </div>
                           </div>
-                          <div className="pt-2">
-                            <span className="text-xs font-semibold bg-blue-900 text-blue-200 px-3 py-1 rounded-full">Discogs ID: {result.discogsId}</span>
-                          </div>
-                        </div>
 
-                        {/* Format & Technical - Column 3 */}
-                        <div className="space-y-3">
-                          <div className="bg-gray-800 p-3 rounded-lg">
-                            <p className="text-xs font-bold text-yellow-400 mb-2">📀 FORMAT DETAILS</p>
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-400">Genre:</span>
-                                <span className="text-white">{result.genre}</span>
-                              </div>
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-400">Type:</span>
-                                <span className="text-white">{result.format}</span>
-                              </div>
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-400">RPM:</span>
-                                <span className="text-white font-bold">{result.rpm}</span>
-                              </div>
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-400">Pressing:</span>
-                                <span className="text-white">{result.pressType}</span>
-                              </div>
+                          {/* Details Grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+                            <div>
+                              <p className="text-gray-400 text-xs mb-1">Label</p>
+                              <p className="text-white font-medium">{result.label}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-xs mb-1">Genre</p>
+                              <p className="text-white font-medium">{result.genre}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-xs mb-1">Format</p>
+                              <p className="text-white font-medium">{result.format} @ {result.rpm} RPM</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-xs mb-1">Catalog</p>
+                              <p className="text-white font-medium">{result.catalog}</p>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Market Info - Column 4 */}
-                        <div className="space-y-3">
-                          <div className="bg-gray-800 p-3 rounded-lg">
-                            <p className="text-xs font-bold text-green-400 mb-2">💰 MARKET DATA</p>
-                            <div className="space-y-2">
+                          {/* Price and Notes */}
+                          <div className="flex flex-col md:flex-row gap-4 md:items-start">
+                            <div className="flex-grow">
+                              <p className="text-gray-400 text-xs mb-1">Notes</p>
+                              <p className="text-gray-300 text-sm line-clamp-2">{result.notes || 'No additional notes'}</p>
+                            </div>
+                            <div className="flex-shrink-0 text-right">
                               {result.price !== null ? (
-                                <>
-                                  <div>
-                                    <p className="text-xs text-gray-400 mb-1">Market Price:</p>
-                                    <p className="text-2xl font-bold text-green-400">${result.price.toFixed(2)}</p>
-                                  </div>
+                                <div>
+                                  <p className="text-gray-400 text-xs mb-1">Market Price</p>
+                                  <p className="text-3xl font-bold text-green-400">${result.price.toFixed(2)}</p>
                                   {result.condition && (
-                                    <div className="border-t border-gray-600 pt-2">
-                                      <p className="text-xs text-gray-400 mb-1">Condition Range:</p>
-                                      <p className="text-sm text-white font-semibold">{result.condition}</p>
-                                    </div>
+                                    <p className="text-gray-400 text-xs mt-1">{result.condition}</p>
                                   )}
-                                </>
+                                </div>
                               ) : (
-                                <div className="text-center py-4">
-                                  <p className="text-xs text-gray-500">No marketplace</p>
-                                  <p className="text-xs text-gray-500">data available</p>
+                                <div>
+                                  <p className="text-gray-400 text-xs">No Pricing</p>
+                                  <p className="text-gray-500 text-xs">Available</p>
                                 </div>
                               )}
                             </div>
                           </div>
                         </div>
 
-                        {/* Action & Notes - Column 5 */}
-                        <div className="flex flex-col justify-between space-y-3">
-                          <div className="bg-gray-800 p-3 rounded-lg flex-grow">
-                            <p className="text-xs font-bold text-purple-400 mb-2">📝 NOTES</p>
-                            <p className="text-xs text-gray-300 line-clamp-6">{result.notes || 'No additional notes'}</p>
-                          </div>
-                          <button className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 rounded-lg text-white font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                            <span>📥</span> Import Record
+                        {/* Action Button */}
+                        <div className="flex-shrink-0 md:flex md:flex-col md:justify-start">
+                          <button className="w-full md:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white font-bold transition text-sm">
+                            📥 Import
                           </button>
                         </div>
                       </div>
@@ -641,12 +616,12 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
-                    <span className="text-gray-300 font-semibold">Cost of Inventory Sold:</span>
-                    <span className="text-white font-bold text-lg">${analytics.salesRevenue.toFixed(2)}</span>
+                    <span className="text-gray-300 font-semibold">Cost of Goods Sold:</span>
+                    <span className="text-white font-bold text-lg">${(analytics.salesRevenue - analytics.totalProfit).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
-                    <span className="text-gray-300 font-semibold">Revenue Earned:</span>
-                    <span className="text-green-400 font-bold text-lg">${(analytics.salesRevenue + analytics.totalProfit).toFixed(2)}</span>
+                    <span className="text-gray-300 font-semibold">Total Revenue:</span>
+                    <span className="text-green-400 font-bold text-lg">${analytics.salesRevenue.toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="space-y-4">
