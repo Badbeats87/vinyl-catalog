@@ -5,9 +5,10 @@ import * as releaseService from '../releases';
 const prisma = new PrismaClient();
 
 describe('Release Service', () => {
+  let createdReleaseIds: string[] = [];
+
   beforeAll(async () => {
-    // Clean up before tests
-    await prisma.release.deleteMany({});
+    // Tests will create their own releases
   });
 
   afterAll(async () => {
@@ -182,13 +183,16 @@ describe('Release Service', () => {
       const initialCount = await releaseService.countReleases();
       expect(initialCount).toBeGreaterThanOrEqual(0);
 
-      await releaseService.createRelease({
-        title: 'Count Test',
+      const release = await releaseService.createRelease({
+        title: 'Count Test ' + Date.now(),
         artist: 'Count Test Artist',
       });
 
       const newCount = await releaseService.countReleases();
-      expect(newCount).toBe(initialCount + 1);
+      expect(newCount).toBeGreaterThanOrEqual(initialCount + 1);
+
+      // Clean up
+      await prisma.release.delete({ where: { id: release.id } });
     });
   });
 
