@@ -10,11 +10,15 @@ const DISCOGS_API_URL = 'https://api.discogs.com';
 // Search Discogs API for vinyl releases
 router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { query, page = 1 } = req.body;
+    const { query, page = 1, currency = 'USD' } = req.body;
     if (!query) {
       res.json({ success: false, error: 'Search query required' });
       return;
     }
+
+    // Validate currency code
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'SEK', 'NZD'];
+    const currencyCode = validCurrencies.includes(currency) ? currency : 'USD';
 
     // Search real Discogs API with vinyl format filter
     const response = await axios.get(`${DISCOGS_API_URL}/database/search`, {
@@ -46,14 +50,14 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
           artist = item.artists[0].name || titleParts[0] || 'Various Artists';
         }
 
-        // Fetch real marketplace pricing from Discogs
+        // Fetch real marketplace pricing from Discogs in requested currency
         let price = null;
 
         try {
           const statsResponse = await axios.get(
             `${DISCOGS_API_URL}/marketplace/stats/${item.id}`,
             {
-              params: { token: DISCOGS_API_TOKEN, curr_abbr: 'USD' },
+              params: { token: DISCOGS_API_TOKEN, curr_abbr: currencyCode },
               headers: { 'User-Agent': 'VinylCatalogApp/1.0' },
             }
           );

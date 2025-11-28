@@ -87,6 +87,7 @@ export default function AdminDashboard() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchSource, setSearchSource] = useState<'discogs' | 'ebay'>('discogs');
+  const [currency, setCurrency] = useState<string>('USD');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     minYear: '',
@@ -100,6 +101,18 @@ export default function AdminDashboard() {
   const [selectedForPricing, setSelectedForPricing] = useState<SearchResult | null>(null);
   const [priceSuggestions, setPriceSuggestions] = useState<any>(null);
   const [loadingPrices, setLoadingPrices] = useState(false);
+
+  const currencySymbols: Record<string, string> = {
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'JPY': '¥',
+    'CAD': '$',
+    'AUD': '$',
+    'CHF': 'CHF',
+    'SEK': 'kr',
+    'NZD': '$'
+  };
 
   const [policies, setPolicies] = useState<PricingPolicy[]>([]);
   const [newPolicyName, setNewPolicyName] = useState('');
@@ -120,6 +133,19 @@ export default function AdminDashboard() {
       router.push('/');
     }
   }, [user, router]);
+
+  // Load currency preference from localStorage on mount
+  useEffect(() => {
+    const savedCurrency = localStorage.getItem('preferredCurrency');
+    if (savedCurrency) {
+      setCurrency(savedCurrency);
+    }
+  }, []);
+
+  // Save currency preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('preferredCurrency', currency);
+  }, [currency]);
 
   useEffect(() => {
     // Load analytics data when component mounts
@@ -166,7 +192,7 @@ export default function AdminDashboard() {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery, filters }),
+        body: JSON.stringify({ query: searchQuery, filters, currency }),
       });
       const data = await res.json();
       if (data.success && data.results) {
@@ -472,6 +498,26 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Currency Selection */}
+              <div>
+                <label className="block text-sm font-semibold mb-3 text-gray-300 uppercase tracking-wider">Currency</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 hover:border-green-500 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 rounded-lg text-white font-semibold transition-all"
+                >
+                  <option value="USD">🇺🇸 USD - US Dollar</option>
+                  <option value="EUR">🇪🇺 EUR - Euro</option>
+                  <option value="GBP">🇬🇧 GBP - British Pound</option>
+                  <option value="JPY">🇯🇵 JPY - Japanese Yen</option>
+                  <option value="CAD">🇨🇦 CAD - Canadian Dollar</option>
+                  <option value="AUD">🇦🇺 AUD - Australian Dollar</option>
+                  <option value="CHF">🇨🇭 CHF - Swiss Franc</option>
+                  <option value="SEK">🇸🇪 SEK - Swedish Krona</option>
+                  <option value="NZD">🇳🇿 NZD - New Zealand Dollar</option>
+                </select>
+              </div>
+
               {/* Search Button */}
               <div className="flex gap-3">
                 <button
@@ -664,8 +710,8 @@ export default function AdminDashboard() {
                           <div className="flex-1 bg-gray-900/60 rounded-lg p-3 border border-gray-600/30">
                             {result.price !== null ? (
                               <>
-                                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Market Price</p>
-                                <p className="text-3xl font-bold text-green-400">${result.price.toFixed(2)}</p>
+                                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Market Price ({currency})</p>
+                                <p className="text-3xl font-bold text-green-400">{currencySymbols[currency]}{result.price.toFixed(2)}</p>
                                 {result.condition && (
                                   <p className="text-gray-500 text-xs mt-1">{result.condition}</p>
                                 )}
@@ -772,15 +818,15 @@ export default function AdminDashboard() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
                           <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Lowest Price</p>
-                          <p className="text-2xl font-bold text-blue-400">${priceSuggestions.lowest?.toFixed(2) || 'N/A'}</p>
+                          <p className="text-2xl font-bold text-blue-400">{currencySymbols[currency]}{priceSuggestions.lowest?.toFixed(2) || 'N/A'}</p>
                         </div>
                         <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
                           <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Average Price</p>
-                          <p className="text-2xl font-bold text-green-400">${priceSuggestions.average?.toFixed(2) || 'N/A'}</p>
+                          <p className="text-2xl font-bold text-green-400">{currencySymbols[currency]}{priceSuggestions.average?.toFixed(2) || 'N/A'}</p>
                         </div>
                         <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
                           <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Highest Price</p>
-                          <p className="text-2xl font-bold text-yellow-400">${priceSuggestions.highest?.toFixed(2) || 'N/A'}</p>
+                          <p className="text-2xl font-bold text-yellow-400">{currencySymbols[currency]}{priceSuggestions.highest?.toFixed(2) || 'N/A'}</p>
                         </div>
                       </div>
                       <div className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30">
