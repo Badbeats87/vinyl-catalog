@@ -630,6 +630,125 @@ app.get('/api/buyer/orders', authenticate, requireBuyer, async (req: Request, re
 });
 
 // ============================================================================
+// BUYER WISHLIST
+// ============================================================================
+
+app.get('/api/buyer/wishlist', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+
+    const wishlistService = require('../services/wishlist.js');
+    const wishlist = await wishlistService.getWishlistWithItems(buyerId);
+
+    res.status(200).json({
+      success: true,
+      data: wishlist,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/buyer/wishlist/items', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { releaseId } = req.body;
+
+    if (!releaseId) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'releaseId is required',
+        },
+      });
+      return;
+    }
+
+    const wishlistService = require('../services/wishlist.js');
+    const item = await wishlistService.addToWishlist(buyerId, releaseId);
+
+    res.status(201).json({
+      success: true,
+      data: item,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Release not found') {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'RELEASE_NOT_FOUND',
+          message: 'Release not found',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.delete('/api/buyer/wishlist/items/:wishlistItemId', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { wishlistItemId } = req.params;
+
+    const wishlistService = require('../services/wishlist.js');
+    await wishlistService.removeFromWishlist(buyerId, wishlistItemId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Item removed from wishlist',
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Wishlist item not found or unauthorized') {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'WISHLIST_ITEM_NOT_FOUND',
+          message: 'Wishlist item not found or unauthorized',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.get('/api/buyer/wishlist/check/:releaseId', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { releaseId } = req.params;
+
+    const wishlistService = require('../services/wishlist.js');
+    const inWishlist = await wishlistService.isInWishlist(buyerId, releaseId);
+
+    res.status(200).json({
+      success: true,
+      data: { inWishlist },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/buyer/wishlist', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+
+    const wishlistService = require('../services/wishlist.js');
+    const count = await wishlistService.clearWishlist(buyerId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Wishlist cleared',
+      data: { itemsRemoved: count },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 

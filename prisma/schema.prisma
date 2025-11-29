@@ -30,6 +30,7 @@ model Release {
   inventoryLots   InventoryLot[]
   pricingAudits   PricingCalculationAudit[]
   salesHistory    SalesHistory[]
+  wishlistItems   WishlistItem[]
 
   @@index([barcode])
   @@index([artist, title])
@@ -327,8 +328,35 @@ model Buyer {
   // Relations
   carts           ShoppingCart[]
   orders          BuyerOrder[]
+  wishlist        Wishlist?
 
   @@index([email])
+}
+
+// Buyer wishlist
+model Wishlist {
+  id        String   @id @default(cuid())
+  buyerId   String   @unique
+  buyer     Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerId])
+}
+
+// Wishlist item (release saved by buyer)
+model WishlistItem {
+  id          String   @id @default(cuid())
+  wishlistId  String
+  wishlist    Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  releaseId   String
+  release     Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  addedAt     DateTime @default(now())
+
+  @@index([wishlistId])
+  @@index([releaseId])
+  @@unique([wishlistId, releaseId])
 }
 
 // Shopping cart for buyer
