@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { CurrencyProvider } from '@/lib/currency-context';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'Vinyl Marketplace',
@@ -15,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <CurrencyProvider>{children}</CurrencyProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
