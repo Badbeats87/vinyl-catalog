@@ -31,6 +31,7 @@ model Release {
   pricingAudits   PricingCalculationAudit[]
   salesHistory    SalesHistory[]
   wishlistItems   WishlistItem[]
+  reviews         Review[]
 
   @@index([barcode])
   @@index([artist, title])
@@ -329,6 +330,7 @@ model Buyer {
   carts           ShoppingCart[]
   orders          BuyerOrder[]
   wishlist        Wishlist?
+  reviews         Review[]
 
   @@index([email])
 }
@@ -445,6 +447,7 @@ model BuyerOrder {
   items           OrderItem[]
   payments        Payment[]
   refunds         Refund[]
+  reviews         Review[]
 
   @@index([buyerId])
   @@index([status])
@@ -470,6 +473,61 @@ model OrderItem {
 
   @@index([orderId])
   @@index([lotId])
+}
+
+// Customer review for a purchased item
+model Review {
+  id              String   @id @default(cuid())
+  buyerId         String
+  buyer           Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  orderId         String
+  order           BuyerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  releaseId       String
+  release         Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  // Review content
+  rating          Int      // 1-5 stars
+  title           String   @db.VarChar(255)
+  content         String   @db.Text
+  conditionRating Int      // 1-5 stars for condition accuracy
+
+  // Photos from the review
+  photos          ReviewPhoto[]
+
+  // Moderation
+  status          String   @db.VarChar(50) @default("pending") // pending, approved, rejected
+  rejectionReason String?  @db.Text
+
+  // Admin response
+  adminResponse   String?  @db.Text
+  respondedAt     DateTime?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([buyerId])
+  @@index([orderId])
+  @@index([releaseId])
+  @@index([status])
+  @@index([rating])
+  @@index([createdAt])
+  @@unique([orderId, releaseId]) // One review per order-release pair
+}
+
+// Review photo
+model ReviewPhoto {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  photoUrl  String   @db.Text // URL to photo
+
+  createdAt DateTime @default(now())
+
+  @@index([reviewId])
 }
 
 // Channel configuration for visibility rules
