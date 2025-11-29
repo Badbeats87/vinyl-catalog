@@ -15,6 +15,48 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+
+  // Email validation regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Validate email format
+  const validateEmail = (value: string): string | undefined => {
+    if (!value) return 'Email is required';
+    if (!emailRegex.test(value)) return 'Please enter a valid email address';
+    return undefined;
+  };
+
+  // Validate password
+  const validatePassword = (value: string): string | undefined => {
+    if (!value) return 'Password is required';
+    return undefined;
+  };
+
+  // Handle email change with validation
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    const error = validateEmail(value);
+    setFieldErrors((prev) => ({
+      ...prev,
+      email: error,
+    }));
+  };
+
+  // Handle password change with validation
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPassword(value);
+    const error = validatePassword(value);
+    setFieldErrors((prev) => ({
+      ...prev,
+      password: error,
+    }));
+  };
+
+  // Check if form is valid
+  const isFormValid = email && password && !fieldErrors.email && !fieldErrors.password;
 
   // Redirect if already logged in
   useEffect(() => {
@@ -32,6 +74,19 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate before submitting
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+
+    if (emailError || passwordError) {
+      setFieldErrors({
+        email: emailError,
+        password: passwordError,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -89,34 +144,46 @@ export default function Login() {
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email
+              Email <span className="text-red-400">*</span>
             </label>
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               placeholder="you@example.com"
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
-              required
+              className={`w-full px-4 py-2 bg-gray-700 border rounded text-white placeholder-gray-500 focus:outline-none transition ${
+                fieldErrors.email
+                  ? 'border-red-500 focus:border-red-500'
+                  : 'border-gray-600 focus:border-green-500'
+              }`}
             />
+            {fieldErrors.email && (
+              <p className="text-red-400 text-sm mt-1">{fieldErrors.email}</p>
+            )}
           </div>
 
           {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Password
+              Password <span className="text-red-400">*</span>
             </label>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               placeholder="••••••••"
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
-              required
+              className={`w-full px-4 py-2 bg-gray-700 border rounded text-white placeholder-gray-500 focus:outline-none transition ${
+                fieldErrors.password
+                  ? 'border-red-500 focus:border-red-500'
+                  : 'border-gray-600 focus:border-green-500'
+              }`}
             />
+            {fieldErrors.password && (
+              <p className="text-red-400 text-sm mt-1">{fieldErrors.password}</p>
+            )}
           </div>
 
-          {/* Error Message */}
+          {/* API Error Message */}
           {error && (
             <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-2 rounded">
               {error}
@@ -126,8 +193,8 @@ export default function Login() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded font-semibold hover:bg-green-700 disabled:opacity-50 transition"
+            disabled={loading || !isFormValid}
+            className="w-full bg-green-600 text-white py-2 rounded font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {loading ? 'Logging in...' : 'Log In'}
           </button>

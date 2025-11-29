@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/lib/currency-context';
+import { useToast } from '@/components/Toast';
+import Pagination from '@/components/Pagination';
 
 interface Product {
   id: string;
@@ -15,16 +17,104 @@ interface Product {
   seller?: string;
 }
 
+interface PaginationInfo {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export default function StorefrontContent() {
   const { user, logout } = useAuthStore();
   const { items: cartItems } = useCartStore();
   const { symbol: currency } = useCurrency();
+  const { addToast } = useToast();
   const router = useRouter();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    total: 0,
+    page: 1,
+    pageSize: 20,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  const fetchInventory = async (page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const pageSize = 20;
+      const offset = (page - 1) * pageSize;
+      const res = await fetch(`/api/buyer/browse?limit=${pageSize}&offset=${offset}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.error) {
+        setError(data.error.message || 'Failed to load inventory');
+        addToast(data.error.message || 'Failed to load inventory', 'error');
+        setProducts([]);
+        return;
+      }
+
+      if (data.groups && Array.isArray(data.groups)) {
+        // Flatten the grouped inventory into a flat product list
+        const allProducts: Product[] = [];
+        for (const group of data.groups) {
+          for (const lot of group.lots) {
+            allProducts.push({
+              id: lot.id,
+              title: group.release.title,
+              artist: group.release.artist,
+              condition: `${lot.conditionMedia}/${lot.conditionSleeve}`,
+              price: lot.listPrice,
+            });
+          }
+        }
+        setProducts(allProducts);
+
+        // Update pagination
+        const total = data.pagination?.total || allProducts.length;
+        setPagination({
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize),
+          hasNextPage: page < Math.ceil(total / pageSize),
+          hasPrevPage: page > 1,
+        });
+      } else {
+        setProducts([]);
+        setPagination({
+          total: 0,
+          page: 1,
+          pageSize: 20,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load inventory';
+      console.error('Error fetching inventory:', err);
+      setError(message);
+      addToast(message, 'error');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user || user.userType !== 'buyer') {
@@ -32,42 +122,7 @@ export default function StorefrontContent() {
       return;
     }
 
-    // Fetch live inventory from the API
-    const fetchInventory = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch('/api/buyer/browse?limit=50&offset=0');
-        const data = await res.json();
-
-        if (data.groups && Array.isArray(data.groups)) {
-          // Flatten the grouped inventory into a flat product list
-          const allProducts: Product[] = [];
-          for (const group of data.groups) {
-            for (const lot of group.lots) {
-              allProducts.push({
-                id: lot.id,
-                title: group.release.title,
-                artist: group.release.artist,
-                condition: `${lot.conditionMedia}/${lot.conditionSleeve}`,
-                price: lot.listPrice,
-              });
-            }
-          }
-          setProducts(allProducts);
-        } else {
-          setProducts([]);
-        }
-      } catch (err) {
-        console.error('Error fetching inventory:', err);
-        setError('Failed to load inventory');
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInventory();
+    fetchInventory(1);
   }, [user, router]);
 
   const handleLogout = () => {
@@ -88,6 +143,7 @@ export default function StorefrontContent() {
         },
       ],
     }));
+    addToast(`Added "${product.title}" to cart`, 'success');
     setSelectedProduct(null);
   };
 
@@ -183,6 +239,15 @@ export default function StorefrontContent() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && products.length > 0 && (
+          <Pagination
+            pagination={pagination}
+            onPageChange={(page) => fetchInventory(page)}
+            isLoading={loading}
+          />
         )}
       </div>
     </div>

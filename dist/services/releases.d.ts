@@ -59,9 +59,9 @@ export declare function deleteRelease(id: string): Promise<boolean>;
 export declare function getReleaseWithDetails(id: string): Promise<({
     marketSnapshots: {
         id: string;
+        releaseId: string;
         createdAt: Date;
         updatedAt: Date;
-        releaseId: string;
         source: string;
         statLow: number | null;
         statMedian: number | null;
@@ -70,9 +70,9 @@ export declare function getReleaseWithDetails(id: string): Promise<({
     }[];
     inventoryLots: {
         id: string;
+        releaseId: string;
         createdAt: Date;
         updatedAt: Date;
-        releaseId: string;
         conditionMedia: string;
         conditionSleeve: string;
         listPrice: number;
@@ -87,10 +87,10 @@ export declare function getReleaseWithDetails(id: string): Promise<({
     }[];
 } & {
     id: string;
+    artist: string;
+    title: string;
     createdAt: Date;
     updatedAt: Date;
-    title: string;
-    artist: string;
     label: string | null;
     catalogNumber: string | null;
     barcode: string | null;
