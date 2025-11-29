@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/lib/currency-context';
+import { useToast } from '@/components/Toast';
+import Pagination from '@/components/Pagination';
+import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
 
 interface Product {
   id: string;
@@ -15,16 +18,139 @@ interface Product {
   seller?: string;
 }
 
+interface PaginationInfo {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export default function StorefrontContent() {
   const { user, logout } = useAuthStore();
   const { items: cartItems } = useCartStore();
   const { symbol: currency } = useCurrency();
+  const { addToast } = useToast();
   const router = useRouter();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    total: 0,
+    page: 1,
+    pageSize: 20,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  const fetchInventory = async (page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const pageSize = 20;
+      const offset = (page - 1) * pageSize;
+      const res = await fetch(`/api/buyer/browse?limit=${pageSize}&offset=${offset}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.error) {
+        setError(data.error.message || 'Failed to load inventory');
+        addToast(data.error.message || 'Failed to load inventory', 'error');
+        setProducts([]);
+        return;
+      }
+
+      if (data.groups && Array.isArray(data.groups)) {
+        // Flatten the grouped inventory into a flat product list
+        const allProducts: Product[] = [];
+        for (const group of data.groups) {
+          for (const lot of group.lots) {
+            allProducts.push({
+              id: lot.id,
+              title: group.release.title,
+              artist: group.release.artist,
+              condition: `${lot.conditionMedia}/${lot.conditionSleeve}`,
+              price: lot.listPrice,
+            });
+          }
+        }
+        setProducts(allProducts);
+
+        // Update pagination
+        const total = data.pagination?.total || allProducts.length;
+        setPagination({
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize),
+          hasNextPage: page < Math.ceil(total / pageSize),
+          hasPrevPage: page > 1,
+        });
+      } else {
+        setProducts([]);
+        setPagination({
+          total: 0,
+          page: 1,
+          pageSize: 20,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load inventory';
+      console.error('Error fetching inventory:', err);
+      setError(message);
+      addToast(message, 'error');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Search function for autocomplete
+  const handleSearchAutocomplete = useCallback(async (query: string): Promise<SearchSuggestion[]> => {
+    try {
+      const res = await fetch(`/api/buyer/search?q=${encodeURIComponent(query)}&limit=8`);
+      const data = await res.json();
+
+      if (data.groups && Array.isArray(data.groups)) {
+        // Convert grouped inventory to suggestions
+        return data.groups.map((group: any) => ({
+          id: group.release.id,
+          title: group.release.title,
+          artist: group.release.artist,
+          year: group.release.year,
+          genre: group.release.genre,
+          label: group.release.label,
+          imageUrl: group.release.imageUrl,
+        }));
+      }
+      return [];
+    } catch (err) {
+      console.error('Search error:', err);
+      return [];
+    }
+  }, []);
+
+  // Handle search suggestion selection
+  const handleSearchSelect = (suggestion: SearchSuggestion) => {
+    setSearchQuery(suggestion.title);
+    addToast(`Searching for "${suggestion.artist} - ${suggestion.title}"`, 'info');
+    // Fetch inventory for this search
+    fetchInventory(1);
+  };
 
   useEffect(() => {
     if (!user || user.userType !== 'buyer') {
@@ -32,42 +158,7 @@ export default function StorefrontContent() {
       return;
     }
 
-    // Fetch live inventory from the API
-    const fetchInventory = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch('/api/buyer/browse?limit=50&offset=0');
-        const data = await res.json();
-
-        if (data.groups && Array.isArray(data.groups)) {
-          // Flatten the grouped inventory into a flat product list
-          const allProducts: Product[] = [];
-          for (const group of data.groups) {
-            for (const lot of group.lots) {
-              allProducts.push({
-                id: lot.id,
-                title: group.release.title,
-                artist: group.release.artist,
-                condition: `${lot.conditionMedia}/${lot.conditionSleeve}`,
-                price: lot.listPrice,
-              });
-            }
-          }
-          setProducts(allProducts);
-        } else {
-          setProducts([]);
-        }
-      } catch (err) {
-        console.error('Error fetching inventory:', err);
-        setError('Failed to load inventory');
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInventory();
+    fetchInventory(1);
   }, [user, router]);
 
   const handleLogout = () => {
@@ -88,6 +179,7 @@ export default function StorefrontContent() {
         },
       ],
     }));
+    addToast(`Added "${product.title}" to cart`, 'success');
     setSelectedProduct(null);
   };
 
@@ -122,15 +214,16 @@ export default function StorefrontContent() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Search & Filter */}
-        <div className="mb-8 flex gap-4">
-          <input
-            type="text"
+        <div className="mb-8 flex-1">
+          <SearchAutocomplete
             placeholder="Search albums, artists..."
-            className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+            onSearch={handleSearchAutocomplete}
+            onSelect={handleSearchSelect}
+            onSearchChange={setSearchQuery}
+            debounceMs={400}
+            minChars={2}
+            isLoading={isSearching}
           />
-          <button className="bg-green-600 text-white px-6 py-2 rounded font-semibold hover:bg-green-700 transition">
-            Search
-          </button>
         </div>
 
         {/* Loading State */}
@@ -183,6 +276,15 @@ export default function StorefrontContent() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && products.length > 0 && (
+          <Pagination
+            pagination={pagination}
+            onPageChange={(page) => fetchInventory(page)}
+            isLoading={loading}
+          />
         )}
       </div>
     </div>

@@ -1,4 +1,10 @@
 import { prisma } from '../db/client.js';
+class EbayApiError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'EbayApiError';
+    }
+}
 /**
  * Get the appropriate market price from snapshots based on policy config
  */
@@ -63,7 +69,7 @@ async function getMarketPrice(releaseId, policy, calculationType) {
         }
         catch (err) {
             console.error(`[Pricing] Failed to fetch eBay data:`, err);
-            // Continue to fallback
+            throw new EbayApiError('Failed to fetch live market data from eBay.');
         }
     }
     return { price: null, snapshotId: null, source: marketSource };
@@ -71,17 +77,22 @@ async function getMarketPrice(releaseId, policy, calculationType) {
 /**
  * Get condition tier adjustment
  */
-async function getConditionAdjustment(conditionName) {
-    const tier = await prisma.conditionTier.findUnique({
-        where: { name: conditionName },
+async function getConditionAdjustment(conditionNames) {
+    const tiers = await prisma.conditionTier.findMany({
+        where: {
+            name: {
+                in: conditionNames,
+            },
+        },
     });
-    if (!tier) {
-        return null;
+    const adjustmentMap = new Map();
+    for (const tier of tiers) {
+        adjustmentMap.set(tier.name, {
+            mediaAdjustment: tier.mediaAdjustment,
+            sleeveAdjustment: tier.sleeveAdjustment,
+        });
     }
-    return {
-        mediaAdjustment: tier.mediaAdjustment,
-        sleeveAdjustment: tier.sleeveAdjustment,
-    };
+    return adjustmentMap;
 }
 /**
  * Get policy-specific condition discount for a given condition
@@ -130,51 +141,11 @@ function applyCaps(price, minCap, maxCap) {
     return cappedPrice;
 }
 /**
- * Calculate pricing (offer or list price) for a release
- * Returns both offer and list prices in a single calculation
+ * Apply policy-specific condition discounts
  */
-export async function calculatePricing(input) {
-    const { releaseId, policy, conditionMedia, conditionSleeve } = input;
-    // Get market price
-    const { price: baseMarketPrice, snapshotId: marketSnapshotId, source: marketSource } = await getMarketPrice(releaseId, policy, input.calculationType);
-    // Check if we need manual review (missing data)
-    const requiresManualReview = baseMarketPrice === null && policy.requiresManualReview;
-    // Get condition adjustments
-    let mediaAdjustment = 1.0;
-    let sleeveAdjustment = 1.0;
-    if (policy.applyConditionAdjustment) {
-        const mediaCondition = await getConditionAdjustment(conditionMedia);
-        const sleeveCondition = await getConditionAdjustment(conditionSleeve);
-        if (mediaCondition) {
-            mediaAdjustment = mediaCondition.mediaAdjustment;
-        }
-        if (sleeveCondition) {
-            sleeveAdjustment = sleeveCondition.sleeveAdjustment;
-        }
-    }
-    // Calculate condition-weighted adjustment
-    let conditionAdjustment = mediaAdjustment * policy.mediaWeight + sleeveAdjustment * policy.sleeveWeight;
-    // Determine formula percentage and stat type based on calculation type
-    let formulaPercentage;
-    let marketStat;
-    let minCap;
-    let maxCap;
-    const discountType = input.calculationType === 'buy_offer' ? 'buy' : 'sell';
-    if (input.calculationType === 'buy_offer') {
-        formulaPercentage = policy.buyPercentage;
-        marketStat = policy.buyMarketStat;
-        minCap = policy.buyMinCap;
-        maxCap = policy.buyMaxCap;
-    }
-    else {
-        formulaPercentage = policy.sellPercentage;
-        marketStat = policy.sellMarketStat;
-        minCap = policy.sellMinCap;
-        maxCap = policy.sellMaxCap;
-    }
-    // Get policy-specific condition discounts and apply them (using correct buy/sell type)
-    let policyConditionDiscount = null;
+async function applyPolicyConditionDiscounts(policy, conditionMedia, conditionSleeve, discountType) {
     let policyDiscountMultiplier = 1.0;
+    let policyConditionDiscount = null;
     // For media condition discount
     const mediaConditionTierId = await getConditionTierId(conditionMedia);
     if (mediaConditionTierId) {
@@ -202,7 +173,59 @@ export async function calculatePricing(input) {
             }
         }
     }
-    // Apply policy condition discount to the condition adjustment
+    return { policyDiscountMultiplier, policyConditionDiscount };
+}
+/**
+ * Calculate pricing (offer or list price) for a release
+ * Returns both offer and list prices in a single calculation
+ */
+export async function calculatePricing(input) {
+    const { releaseId, policy, conditionMedia, conditionSleeve } = input;
+    // Get market price
+    const { price: baseMarketPrice, snapshotId: marketSnapshotId, source: marketSource } = await getMarketPrice(releaseId, policy, input.calculationType);
+    // Check if we need manual review (missing data)
+    const requiresManualReview = baseMarketPrice === null && policy.requiresManualReview;
+    // Get condition adjustments
+    let mediaAdjustment = 1.0;
+    let sleeveAdjustment = 1.0;
+    if (policy.applyConditionAdjustment) {
+        const adjustmentMap = await getConditionAdjustment([conditionMedia, conditionSleeve]);
+        const mediaCondition = adjustmentMap.get(conditionMedia);
+        const sleeveCondition = adjustmentMap.get(conditionSleeve);
+        if (mediaCondition) {
+            mediaAdjustment = mediaCondition.mediaAdjustment;
+        }
+        if (sleeveCondition) {
+            sleeveAdjustment = sleeveCondition.sleeveAdjustment;
+        }
+    }
+    // Calculate condition-weighted adjustment.
+    // This combines the media and sleeve condition adjustments into a single value
+    // based on the weights defined in the policy.
+    let conditionAdjustment = mediaAdjustment * policy.mediaWeight + sleeveAdjustment * policy.sleeveWeight;
+    // Determine formula percentage and stat type based on calculation type
+    let formulaPercentage;
+    let marketStat;
+    let minCap;
+    let maxCap;
+    const discountType = input.calculationType === 'buy_offer' ? 'buy' : 'sell';
+    if (input.calculationType === 'buy_offer') {
+        formulaPercentage = policy.buyPercentage;
+        marketStat = policy.buyMarketStat;
+        minCap = policy.buyMinCap;
+        maxCap = policy.buyMaxCap;
+    }
+    else {
+        formulaPercentage = policy.sellPercentage;
+        marketStat = policy.sellMarketStat;
+        minCap = policy.sellMinCap;
+        maxCap = policy.sellMaxCap;
+    }
+    // Get policy-specific condition discounts and apply them (using correct buy/sell type)
+    const { policyDiscountMultiplier, policyConditionDiscount } = await applyPolicyConditionDiscounts(policy, conditionMedia, conditionSleeve, discountType);
+    // Apply policy condition discount to the condition adjustment.
+    // This allows for fine-tuning the price based on the condition of the record
+    // for a specific policy, in addition to the global condition adjustment.
     conditionAdjustment *= policyDiscountMultiplier;
     // Calculate price with fallback
     let priceBeforeRounding;

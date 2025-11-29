@@ -3,7 +3,6 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 
@@ -57,10 +56,46 @@ interface AnalyticStats {
   averageProfitMargin: number;
 }
 
+type AdminTab =
+  | 'submissions'
+  | 'search'
+  | 'pricing'
+  | 'analytics'
+  | 'inventory'
+  | 'automation'
+  | 'system';
+
+interface AutomationAlert {
+  id: string;
+  title: string;
+  description: string;
+  severity: 'info' | 'warning' | 'critical';
+  status: 'open' | 'snoozed' | 'resolved';
+  timestamp: string;
+  metric: string;
+}
+
+interface SystemService {
+  id: string;
+  name: string;
+  status: 'healthy' | 'warning' | 'outage';
+  metric: string;
+  detail: string;
+  lastIncident: string;
+}
+
+interface SyncJob {
+  id: string;
+  name: string;
+  eta: string;
+  status: 'queued' | 'running' | 'complete';
+  channel: string;
+}
+
 export default function AdminDashboard() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'submissions' | 'search' | 'pricing' | 'analytics' | 'inventory'>('submissions');
+  const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
@@ -144,6 +179,76 @@ export default function AdminDashboard() {
     totalProfit: 0,
     averageProfitMargin: 0,
   });
+
+  // Automation + system health state
+  const [automationAlerts, setAutomationAlerts] = useState<AutomationAlert[]>([
+    {
+      id: 'auto-1',
+      title: 'Policy drift detected',
+      description: 'Median buy % exceeded by 6 sellers in the last hour.',
+      severity: 'warning',
+      status: 'open',
+      timestamp: '5m ago',
+      metric: '+6.2%',
+    },
+    {
+      id: 'auto-2',
+      title: 'Fraud hold triggered',
+      description: 'Two payouts paused due to mismatched shipping scans.',
+      severity: 'critical',
+      status: 'open',
+      timestamp: '18m ago',
+      metric: '2 payouts',
+    },
+    {
+      id: 'auto-3',
+      title: 'eBay ingest lagging',
+      description: 'Marketplace sync delayed; retry pipeline queued.',
+      severity: 'warning',
+      status: 'snoozed',
+      timestamp: '32m ago',
+      metric: '21m lag',
+    },
+  ]);
+  const [systemServices, setSystemServices] = useState<SystemService[]>([
+    {
+      id: 'svc-1',
+      name: 'Discogs search',
+      status: 'healthy',
+      metric: '480ms avg',
+      detail: 'Live search + import',
+      lastIncident: '2d ago',
+    },
+    {
+      id: 'svc-2',
+      name: 'eBay pipeline',
+      status: 'warning',
+      metric: '25m lag',
+      detail: 'Ingestion queue processing',
+      lastIncident: '38m ago',
+    },
+    {
+      id: 'svc-3',
+      name: 'Pricing engine',
+      status: 'healthy',
+      metric: 'Latest run 7m ago',
+      detail: 'Policy + discount application',
+      lastIncident: '4d ago',
+    },
+    {
+      id: 'svc-4',
+      name: 'Payout service',
+      status: 'outage',
+      metric: 'Paused',
+      detail: 'Fraud guard flag on batch #814',
+      lastIncident: 'Just now',
+    },
+  ]);
+  const [syncJobs, setSyncJobs] = useState<SyncJob[]>([
+    { id: 'sync-1', name: 'Storefront feed', eta: '2m', status: 'running', channel: 'web' },
+    { id: 'sync-2', name: 'Marketplace exports', eta: '14m', status: 'queued', channel: 'eBay' },
+    { id: 'sync-3', name: 'Retail replenishment', eta: 'Done', status: 'complete', channel: 'Store' },
+  ]);
 
   // Inventory state
   const [inventory, setInventory] = useState<any[]>([]);
@@ -795,11 +900,11 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (data.success) {
         alert('Lot created successfully!');
-        setShowCreateModal(false);
-        // Refresh inventory
-        window.location.reload();
-      } else {
-        alert('Failed to create lot: ' + (data.error?.message || 'Unknown error'));
+      setShowCreateModal(false);
+      // Refresh inventory
+      window.location.reload();
+    } else {
+      alert('Failed to create lot: ' + (data.error?.message || 'Unknown error'));
       }
     } catch (err) {
       console.error('Error creating lot:', err);
@@ -809,9 +914,103 @@ export default function AdminDashboard() {
     }
   };
 
+  const updateAlertStatus = (id: string, status: AutomationAlert['status']) => {
+    setAutomationAlerts((prev) =>
+      prev.map((alert) => (alert.id === id ? { ...alert, status } : alert))
+    );
+  };
+
+  const setServiceStatus = (id: string, status: SystemService['status']) => {
+    setSystemServices((prev) =>
+      prev.map((service) => (service.id === id ? { ...service, status } : service))
+    );
+  };
+
+  const advanceSyncJob = (id: string) => {
+    setSyncJobs((prev) =>
+      prev.map((job) => {
+        if (job.id !== id) return job;
+        if (job.status === 'queued') {
+          return { ...job, status: 'running', eta: '5m' };
+        }
+        if (job.status === 'running') {
+          return { ...job, status: 'complete', eta: 'Done' };
+        }
+        return job;
+      })
+    );
+  };
+
   const pendingCount = submissions.filter((s) => s.status === 'pending').length;
   const approvedCount = submissions.filter((s) => s.status === 'approved').length;
   const rejectedCount = submissions.filter((s) => s.status === 'rejected').length;
+  const openAutomationAlerts = automationAlerts.filter((a) => a.status === 'open').length;
+  const criticalAlerts = automationAlerts.filter(
+    (a) => a.status === 'open' && a.severity === 'critical'
+  ).length;
+  const activePolicyCount = policies.filter((p) => p.isActive).length || policies.length;
+  const displayPercent = (value?: number) => {
+    if (typeof value !== 'number') return 0;
+    return value <= 1 ? Math.round(value * 100) : Math.round(value);
+  };
+  const severityStyles: Record<
+    AutomationAlert['severity'],
+    { badge: string; dot: string }
+  > = {
+    info: { badge: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
+    warning: { badge: 'bg-amber-50 text-amber-800', dot: 'bg-amber-400' },
+    critical: { badge: 'bg-red-50 text-red-700', dot: 'bg-red-500' },
+  };
+  const serviceStatusStyles: Record<SystemService['status'], string> = {
+    healthy: 'bg-emerald-50 text-emerald-700',
+    warning: 'bg-amber-50 text-amber-700',
+    outage: 'bg-red-50 text-red-700',
+  };
+  const jobStatusText: Record<SyncJob['status'], string> = {
+    queued: 'Queued',
+    running: 'Running',
+    complete: 'Complete',
+  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: value >= 1000 ? 0 : 2,
+    }).format(value);
+  const quickStats = [
+    {
+      label: 'Pending submissions',
+      value: pendingCount,
+      context: `${submissions.length} total in queue`,
+    },
+    {
+      label: 'Escalations',
+      value: criticalAlerts,
+      context: `${openAutomationAlerts} automation alerts`,
+    },
+    {
+      label: 'Inventory value',
+      value: formatCurrency(analytics.inventoryValue),
+      context: `${analytics.addedThisWeek} lots added this week`,
+    },
+    {
+      label: 'Active policies',
+      value: activePolicyCount,
+      context: `${policies.length} total strategies`,
+    },
+  ];
+  const adminTabsMeta: { id: AdminTab; label: string; description: string }[] = [
+    { id: 'submissions', label: 'Submissions', description: 'Queue & trust' },
+    { id: 'search', label: 'Catalog Search', description: 'Discogs + eBay' },
+    { id: 'pricing', label: 'Pricing', description: 'Strategies & discounts' },
+    { id: 'analytics', label: 'Analytics', description: 'Revenue & margin' },
+    { id: 'inventory', label: 'Inventory', description: 'Lots & ops' },
+    { id: 'automation', label: 'Automation', description: 'Alerts & playbooks' },
+    { id: 'system', label: 'System Health', description: 'Pipelines & uptime' },
+  ];
+  const healthyServices = systemServices.filter((s) => s.status === 'healthy').length;
+  const warningServices = systemServices.filter((s) => s.status === 'warning').length;
+  const outageServices = systemServices.filter((s) => s.status === 'outage').length;
 
   return (
     <div className="min-h-screen bg-white">
@@ -832,58 +1031,38 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-12">
+        {/* Control Center Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-10">
+          {quickStats.map((stat) => (
+            <div
+              key={stat.label}
+              className="border border-gray-200 rounded-2xl px-6 py-5 bg-gradient-to-br from-gray-50 to-white"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{stat.label}</p>
+              <p className="text-3xl font-light text-gray-900 mt-2">{stat.value}</p>
+              <p className="text-xs text-gray-500 mt-3">{stat.context}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Tab Navigation */}
-        <div className="flex gap-8 mb-12 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('submissions')}
-            className={`pb-4 text-sm font-medium transition ${
-              activeTab === 'submissions'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Submissions
-          </button>
-          <button
-            onClick={() => setActiveTab('search')}
-            className={`pb-4 text-sm font-medium transition ${
-              activeTab === 'search'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Search
-          </button>
-          <button
-            onClick={() => setActiveTab('pricing')}
-            className={`pb-4 text-sm font-medium transition ${
-              activeTab === 'pricing'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Pricing
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`pb-4 text-sm font-medium transition ${
-              activeTab === 'analytics'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`pb-4 text-sm font-medium transition ${
-              activeTab === 'inventory'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Inventory
-          </button>
+        <div className="flex flex-wrap gap-4 mb-12">
+          {adminTabsMeta.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-start rounded-2xl border px-5 py-4 min-w-[140px] transition ${
+                activeTab === tab.id
+                  ? 'bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-900/10'
+                  : 'border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900'
+              }`}
+            >
+              <span className="text-sm font-semibold">{tab.label}</span>
+              <span className={`text-xs mt-1 ${activeTab === tab.id ? 'text-gray-200' : 'text-gray-500'}`}>
+                {tab.description}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* SUBMISSIONS TAB */}
@@ -3318,6 +3497,233 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* AUTOMATION TAB */}
+        {activeTab === 'automation' && (
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              {automationAlerts.map((alert) => {
+                const severity = severityStyles[alert.severity];
+                return (
+                  <div key={alert.id} className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">{alert.timestamp}</p>
+                        <h3 className="text-xl font-semibold text-gray-900 mt-2">{alert.title}</h3>
+                        <p className="text-sm text-gray-600 mt-2">{alert.description}</p>
+                        <p className="text-xs text-gray-500 mt-2">Signal: {alert.metric}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${severity.badge}`}>
+                          {alert.severity.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-500 capitalize">{alert.status}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-3 border-t border-gray-200 pt-4 mt-4">
+                      {alert.status === 'open' && (
+                        <button
+                          onClick={() => updateAlertStatus(alert.id, 'snoozed')}
+                          className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:border-gray-400"
+                        >
+                          Snooze 30m
+                        </button>
+                      )}
+                      <button
+                        onClick={() =>
+                          updateAlertStatus(alert.id, alert.status === 'resolved' ? 'open' : 'resolved')
+                        }
+                        className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800"
+                      >
+                        {alert.status === 'resolved' ? 'Reopen alert' : 'Mark resolved'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {automationAlerts.length === 0 && (
+                <div className="border border-dashed border-gray-300 rounded-2xl p-12 text-center text-gray-500">
+                  All automation playbooks are quiet. Enjoy the calm before the next drop.
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-semibold text-gray-900">Policy snapshot</h3>
+                  <button
+                    onClick={() => setActiveTab('pricing')}
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-900"
+                  >
+                    Manage
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {policies.slice(0, 3).map((policy) => (
+                    <div key={policy.id} className="border border-gray-100 rounded-xl p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{policy.name}</p>
+                          <p className="text-xs text-gray-500 capitalize">
+                            {policy.buyMarketSource} · {policy.buyMarketStat}
+                          </p>
+                        </div>
+                        {policy.isActive && (
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-3">
+                        Buy {displayPercent(policy.buyPercentage)}% · Sell {displayPercent(policy.sellPercentage)}%
+                      </p>
+                    </div>
+                  ))}
+                  {policies.length === 0 && (
+                    <p className="text-sm text-gray-500">
+                      No pricing strategies yet. Create one from the Pricing tab to automate payouts.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Automation health</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Open alerts</span>
+                    <span className="text-gray-900 font-semibold">{openAutomationAlerts}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Critical in queue</span>
+                    <span className="text-red-600 font-semibold">{criticalAlerts}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Pricing policies</span>
+                    <span className="text-gray-900 font-semibold">{activePolicyCount}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Upcoming sync windows</h4>
+                  <div className="space-y-3">
+                    {syncJobs.map((job) => (
+                      <div key={job.id} className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-semibold text-gray-900">{job.name}</p>
+                          <p className="text-xs text-gray-500">{job.channel}</p>
+                        </div>
+                        <button
+                          onClick={() => advanceSyncJob(job.id)}
+                          disabled={job.status === 'complete'}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            job.status === 'complete'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {jobStatusText[job.status]} · {job.eta}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SYSTEM HEALTH TAB */}
+        {activeTab === 'system' && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="border border-gray-200 rounded-2xl p-5">
+                <p className="text-xs uppercase text-gray-500 font-semibold">Healthy services</p>
+                <p className="text-3xl font-light text-emerald-600 mt-2">{healthyServices}</p>
+                <p className="text-xs text-gray-500 mt-2">Stable over last hour</p>
+              </div>
+              <div className="border border-gray-200 rounded-2xl p-5">
+                <p className="text-xs uppercase text-gray-500 font-semibold">Warnings</p>
+                <p className="text-3xl font-light text-amber-500 mt-2">{warningServices}</p>
+                <p className="text-xs text-gray-500 mt-2">Action needed soon</p>
+              </div>
+              <div className="border border-gray-200 rounded-2xl p-5">
+                <p className="text-xs uppercase text-gray-500 font-semibold">Outages</p>
+                <p className="text-3xl font-light text-red-500 mt-2">{outageServices}</p>
+                <p className="text-xs text-gray-500 mt-2">Escalated to support</p>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-8">
+              <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Service status</h3>
+                  <span className="text-xs text-gray-500">Live telemetry</span>
+                </div>
+                <div className="space-y-4">
+                  {systemServices.map((service) => (
+                    <div key={service.id} className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-gray-900">{service.name}</p>
+                        <p className="text-xs text-gray-500">{service.detail}</p>
+                        <p className="text-xs text-gray-400 mt-1">Last incident {service.lastIncident}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${serviceStatusStyles[service.status]}`}>
+                          {service.status}
+                        </span>
+                        <p className="text-sm text-gray-600 mt-2">{service.metric}</p>
+                        {service.status !== 'healthy' && (
+                          <button
+                            onClick={() => setServiceStatus(service.id, 'healthy')}
+                            className="text-xs text-emerald-600 font-semibold mt-3"
+                          >
+                            Mark stable
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Pipeline timeline</h3>
+                <div className="space-y-4">
+                  {syncJobs.map((job) => (
+                    <div key={job.id} className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-gray-900">{job.name}</p>
+                        <p className="text-xs text-gray-500 uppercase">{job.channel}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                          job.status === 'complete'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : job.status === 'running'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {jobStatusText[job.status]}
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">ETA {job.eta}</p>
+                        {job.status !== 'complete' && (
+                          <button
+                            onClick={() => advanceSyncJob(job.id)}
+                            className="text-xs text-gray-600 underline mt-2"
+                          >
+                            Advance stage
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

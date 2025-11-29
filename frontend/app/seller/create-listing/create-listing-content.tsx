@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useCurrency } from '@/lib/currency-context';
+import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
+import PhotoUpload, { UploadedPhoto } from '@/components/PhotoUpload';
 
 interface DiscogsRecord {
   id: string;
@@ -35,28 +37,187 @@ export default function CreateListingContent() {
   const [searchResults, setSearchResults] = useState<DiscogsRecord[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<DiscogsRecord | null>(null);
+  const [searchError, setSearchError] = useState('');
 
   // Pricing state
   const [buyPrice, setBuyPrice] = useState<number | null>(null);
   const [sellPrice, setSellPrice] = useState<number | null>(null);
+  const [buyPriceInput, setBuyPriceInput] = useState('');
+  const [sellPriceInput, setSellPriceInput] = useState('');
 
   // Conditions (separate for media and sleeve)
   const [conditionMedia, setConditionMedia] = useState('Very Good');
   const [conditionSleeve, setConditionSleeve] = useState('Very Good');
 
+  // Photo state
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
+
+  // Field errors
+  const [fieldErrors, setFieldErrors] = useState<{
+    searchQuery?: string;
+    buyPrice?: string;
+    sellPrice?: string;
+  }>({});
+
+  const DRAFT_STORAGE_KEY = 'listing_draft';
+
+  // Save draft to localStorage
+  const saveDraft = useCallback(() => {
+    const draft = {
+      step,
+      searchQuery,
+      selectedRecord,
+      buyPrice,
+      sellPrice,
+      buyPriceInput,
+      sellPriceInput,
+      conditionMedia,
+      conditionSleeve,
+      photoCount: photos.length,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [step, searchQuery, selectedRecord, buyPrice, sellPrice, buyPriceInput, sellPriceInput, conditionMedia, conditionSleeve, photos.length]);
+
+  // Load draft from localStorage
+  const loadDraft = useCallback(() => {
+    const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (draft) {
+      const parsed = JSON.parse(draft);
+      setStep(parsed.step || 'search');
+      setSearchQuery(parsed.searchQuery || '');
+      setSelectedRecord(parsed.selectedRecord || null);
+      setBuyPrice(parsed.buyPrice || null);
+      setSellPrice(parsed.sellPrice || null);
+      setBuyPriceInput(parsed.buyPriceInput || '');
+      setSellPriceInput(parsed.sellPriceInput || '');
+      setConditionMedia(parsed.conditionMedia || 'Very Good');
+      setConditionSleeve(parsed.conditionSleeve || 'Very Good');
+    }
+  }, []);
+
+  // Clear draft
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setSearchQuery('');
+    setSelectedRecord(null);
+    setBuyPrice(null);
+    setSellPrice(null);
+    setBuyPriceInput('');
+    setSellPriceInput('');
+    setConditionMedia('Very Good');
+    setConditionSleeve('Very Good');
+    setPhotos([]);
+    setStep('search');
+  }, []);
+
+  // Validate search query
+  const validateSearchQuery = (value: string): string | undefined => {
+    if (!value || !value.trim()) return 'Please enter a search query';
+    return undefined;
+  };
+
+  // Validate price
+  const validatePrice = (value: string, fieldName: string): string | undefined => {
+    if (!value) return `${fieldName} is required`;
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return `${fieldName} must be a valid number`;
+    if (numValue <= 0) return `${fieldName} must be greater than 0`;
+    return undefined;
+  };
+
+  // Handle search query change
+  const handleSearchQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    const error = validateSearchQuery(value);
+    setSearchError(error || '');
+  };
+
+  // Discogs autocomplete search function
+  const handleDiscogsAutocomplete = useCallback(async (query: string): Promise<SearchSuggestion[]> => {
+    try {
+      const res = await fetch('/api/search/discogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.results) {
+        return data.results.slice(0, 8).map((result: any) => ({
+          id: result.id,
+          title: result.title,
+          artist: result.artist,
+          year: result.year,
+          genre: result.genre,
+          label: result.label,
+          imageUrl: result.imageUrl,
+        }));
+      }
+      return [];
+    } catch (err) {
+      console.error('Discogs search error:', err);
+      return [];
+    }
+  }, []);
+
+  // Handle Discogs result selection
+  const handleDiscogsSelect = (suggestion: SearchSuggestion) => {
+    // Find the full record object from search results
+    const fullRecord = searchResults.find(r => r.id === suggestion.id);
+    if (fullRecord) {
+      handleSelectRecord(fullRecord);
+    } else {
+      // If not found in current results, reconstruct from suggestion
+      const record: DiscogsRecord = {
+        id: suggestion.id,
+        discogsId: parseInt(suggestion.id) || 0,
+        title: suggestion.title,
+        artist: suggestion.artist,
+        year: suggestion.year || new Date().getFullYear(),
+        label: suggestion.label || '',
+        price: null,
+        imageUrl: suggestion.imageUrl || '',
+        genre: suggestion.genre || '',
+        format: 'Vinyl',
+        rpm: 33,
+        catalog: '',
+        notes: '',
+      };
+      handleSelectRecord(record);
+    }
+  };
+
+  // Load draft on component mount
   useEffect(() => {
     if (!user || user.userType !== 'seller') {
       router.push('/');
+      return;
     }
-  }, [user, router]);
+    loadDraft();
+  }, [user, router, loadDraft]);
+
+  // Auto-save draft every 30 seconds if there's data
+  useEffect(() => {
+    if (selectedRecord || searchQuery || buyPriceInput || sellPriceInput) {
+      const saveTimer = setInterval(() => {
+        saveDraft();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(saveTimer);
+    }
+  }, [saveDraft, selectedRecord, searchQuery, buyPriceInput, sellPriceInput]);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setError('Please enter a search query');
+    const error = validateSearchQuery(searchQuery);
+    if (error) {
+      setSearchError(error);
       return;
     }
     setSearching(true);
     setError('');
+    setSearchError('');
     try {
       const res = await fetch('/api/search/discogs', {
         method: 'POST',
@@ -99,6 +260,22 @@ export default function CreateListingContent() {
       return;
     }
 
+    // Validate prices
+    const finalBuyPrice = buyPriceInput ? parseFloat(buyPriceInput) : buyPrice;
+    const finalSellPrice = sellPriceInput ? parseFloat(sellPriceInput) : sellPrice;
+
+    const buyError = validatePrice(finalBuyPrice?.toString() || '', 'Buy Price');
+    const sellError = validatePrice(finalSellPrice?.toString() || '', 'Sell Price');
+
+    if (buyError || sellError) {
+      setFieldErrors({
+        buyPrice: buyError,
+        sellPrice: sellError,
+      });
+      setError('Please fix the pricing errors');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
@@ -122,8 +299,8 @@ export default function CreateListingContent() {
           imageUrl: selectedRecord.imageUrl,
           conditionMedia,
           conditionSleeve,
-          buyingPrice: buyPrice,
-          sellingPrice: sellPrice,
+          buyingPrice: finalBuyPrice,
+          sellingPrice: finalSellPrice,
           notes: selectedRecord.notes,
         }),
       });
@@ -155,6 +332,26 @@ export default function CreateListingContent() {
         </div>
       </header>
 
+      {/* Draft Status Banner */}
+      {localStorage.getItem(DRAFT_STORAGE_KEY) && (
+        <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                📝 Draft saved - Continue your listing or start fresh
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearDraft}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Clear Draft
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto px-6 py-12">
         {step === 'search' ? (
           // SEARCH STEP
@@ -167,19 +364,40 @@ export default function CreateListingContent() {
             <div className="border border-gray-200 rounded-lg p-8">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Search</label>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                    Search Discogs <span className="text-red-600">*</span>
+                  </label>
+                  <div className="mb-3">
+                    <SearchAutocomplete
+                      placeholder="Artist, album, or catalog number"
+                      onSearch={handleDiscogsAutocomplete}
+                      onSelect={handleDiscogsSelect}
+                      onSearchChange={handleSearchQueryChange}
+                      debounceMs={500}
+                      minChars={2}
+                      isLoading={searching}
+                    />
+                  </div>
+                  {searchError && (
+                    <p className="text-red-600 text-sm mb-3">{searchError}</p>
+                  )}
+                  <p className="text-sm text-gray-600 mb-4">Or use the manual search below for advanced options</p>
                   <div className="flex gap-3">
                     <input
                       type="text"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={handleSearchQueryChange}
                       onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                       placeholder="Artist, album, or catalog number"
-                      className="flex-1 px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded text-gray-900 placeholder-gray-500 transition-all"
+                      className={`flex-1 px-4 py-3 border rounded text-gray-900 placeholder-gray-500 transition-all focus:ring-1 focus:ring-gray-900 ${
+                        searchError
+                          ? 'border-red-400 focus:border-red-600'
+                          : 'border-gray-300 hover:border-gray-400 focus:border-gray-900'
+                      }`}
                     />
                     <button
                       onClick={handleSearch}
-                      disabled={searching}
+                      disabled={searching || !searchQuery.trim()}
                       className="px-6 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded transition"
                     >
                       {searching ? 'Searching...' : 'Search'}
@@ -278,11 +496,125 @@ export default function CreateListingContent() {
                     </div>
                   </div>
 
-                  {/* Pricing Display */}
-                  <div className="border border-gray-200 rounded-lg p-8 text-center bg-gray-50">
-                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">We Will Pay</p>
-                    <p className="text-4xl font-light text-gray-900 mb-1">{currency}{buyPrice?.toFixed(2) || '0.00'}</p>
-                    <p className="text-xs text-gray-600">Based on current market lowest price</p>
+                  {/* Photo Upload */}
+                  <div className="border border-gray-200 rounded-lg p-8">
+                    <h3 className="text-base font-medium text-gray-900 mb-6">Listing Photos</h3>
+                    <PhotoUpload
+                      onPhotosChange={setPhotos}
+                      maxPhotos={5}
+                      maxSizeMB={10}
+                    />
+                    {photos.length > 0 && (
+                      <p className="text-sm text-gray-600 mt-4">
+                        {photos.length > 1
+                          ? `${photos.length} photos uploaded. Main photo: ${photos.find(p => p.isMain)?.file.name}`
+                          : `1 photo uploaded: ${photos[0].file.name}`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Pricing Fields */}
+                  <div className="border border-gray-200 rounded-lg p-8 space-y-6">
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Pricing <span className="text-red-600">*</span>
+                    </label>
+
+                    {/* Price Preview Card */}
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 mb-1">We Pay</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {currency}{(buyPriceInput ? parseFloat(buyPriceInput) : buyPrice)?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                      <div className="text-center border-l border-r border-gray-300">
+                        <p className="text-xs text-gray-600 mb-1">You List For</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {currency}{(sellPriceInput ? parseFloat(sellPriceInput) : sellPrice)?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 mb-1">Profit Margin</p>
+                        <p className={`text-2xl font-bold ${
+                          ((sellPriceInput ? parseFloat(sellPriceInput) : sellPrice) ?? 0) > ((buyPriceInput ? parseFloat(buyPriceInput) : buyPrice) ?? 0)
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}>
+                          {buyPriceInput && sellPriceInput
+                            ? `${(((parseFloat(sellPriceInput) - parseFloat(buyPriceInput)) / parseFloat(buyPriceInput)) * 100).toFixed(1)}%`
+                            : '—'
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* Buy Price */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-2">Buy Price ({currency})</label>
+                        <input
+                          type="text"
+                          value={buyPriceInput}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setBuyPriceInput(value);
+                            const error = validatePrice(value, 'Buy Price');
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              buyPrice: error,
+                            }));
+                            if (!error && value) {
+                              setBuyPrice(parseFloat(value));
+                            }
+                          }}
+                          placeholder={buyPrice?.toFixed(2) || 'Enter price'}
+                          className={`w-full px-4 py-2 border rounded text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-900 transition ${
+                            fieldErrors.buyPrice
+                              ? 'border-red-400 focus:border-red-600'
+                              : 'border-gray-300 hover:border-gray-400 focus:border-gray-900'
+                          }`}
+                        />
+                        {fieldErrors.buyPrice && (
+                          <p className="text-red-600 text-sm mt-1">{fieldErrors.buyPrice}</p>
+                        )}
+                        {buyPrice && !buyPriceInput && (
+                          <p className="text-gray-600 text-xs mt-1">Default: {currency}{buyPrice.toFixed(2)}</p>
+                        )}
+                      </div>
+
+                      {/* Sell Price */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-2">Sell Price ({currency})</label>
+                        <input
+                          type="text"
+                          value={sellPriceInput}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSellPriceInput(value);
+                            const error = validatePrice(value, 'Sell Price');
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              sellPrice: error,
+                            }));
+                            if (!error && value) {
+                              setSellPrice(parseFloat(value));
+                            }
+                          }}
+                          placeholder={sellPrice?.toFixed(2) || 'Enter price'}
+                          className={`w-full px-4 py-2 border rounded text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-900 transition ${
+                            fieldErrors.sellPrice
+                              ? 'border-red-400 focus:border-red-600'
+                              : 'border-gray-300 hover:border-gray-400 focus:border-gray-900'
+                          }`}
+                        />
+                        {fieldErrors.sellPrice && (
+                          <p className="text-red-600 text-sm mt-1">{fieldErrors.sellPrice}</p>
+                        )}
+                        {sellPrice && !sellPriceInput && (
+                          <p className="text-gray-600 text-xs mt-1">Default: {currency}{sellPrice.toFixed(2)}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -349,7 +681,7 @@ export default function CreateListingContent() {
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
-                  disabled={loading || !selectedRecord}
+                  disabled={loading || !selectedRecord || !!(fieldErrors.buyPrice || fieldErrors.sellPrice)}
                   className="flex-1 bg-gray-900 text-white py-3 rounded font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   {loading ? 'Creating...' : 'Create Listing'}

@@ -285,4 +285,49 @@ export async function getPoliciesRequiringManualReview() {
         },
     });
 }
+/**
+ * Main function to run standalone tasks
+ */
+async function main() {
+    const action = process.argv[2];
+    const value = process.argv[3];
+    console.log(`[Policies] Action: ${action}, Value: ${value}\n`);
+    switch (action) {
+        case 'list-active':
+            const policies = await getActivePolicies(0, 100);
+            console.log('Active Policies:', policies);
+            break;
+        case 'get-by-id':
+            if (!value) {
+                console.error('Error: Policy ID is required for get-by-id');
+                return;
+            }
+            const policy = await getPricingPolicyById(value);
+            console.log('Found Policy:', policy);
+            break;
+        case 'get-default':
+            const defaultPolicy = await getDefaultPolicy();
+            console.log('Default Policy:', defaultPolicy);
+            break;
+        case 'get-for-genre':
+            if (!value) {
+                console.error('Error: Genre is required for get-for-genre');
+                return;
+            }
+            const genrePolicy = await getPolicyForGenre(value);
+            console.log(`Policy for Genre "${value}":`, genrePolicy);
+            break;
+        default:
+            console.log('Usage:');
+            console.log('  - yarn exec:ts src/services/pricing-policies.ts list-active');
+            console.log('  - yarn exec:ts src/services/pricing-policies.ts get-by-id <policy_id>');
+            console.log('  - yarn exec:ts src/services/pricing-policies.ts get-default');
+            console.log('  - yarn exec:ts src/services/pricing-policies.ts get-for-genre <genre_name>');
+            break;
+    }
+}
+main().catch((e) => {
+    console.error('An unhandled error occurred:', e);
+    process.exit(1);
+});
 //# sourceMappingURL=pricing-policies.js.map
