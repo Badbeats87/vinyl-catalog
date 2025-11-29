@@ -1,7 +1,12 @@
 'use client';
 
 import { CurrencyProvider } from '@/lib/currency-context';
+import { ToastProvider } from '@/components/Toast';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <CurrencyProvider>{children}</CurrencyProvider>;
+  return (
+    <ToastProvider>
+      <CurrencyProvider>{children}</CurrencyProvider>
+    </ToastProvider>
+  );
 }
