@@ -135,7 +135,8 @@ app.post('/api/seller/submit', authenticate, requireSeller, async (req: Request,
 
 app.post('/api/seller/listings', authenticate, requireSeller, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const response = await sellerRoutes.createListing(req.body);
+    const userId = (req as any).user?.email || 'unknown@demo.com';
+    const response = await sellerRoutes.createListing(req.body, userId);
     res.status(response.success ? 200 : 400).json(response);
   } catch (error) {
     next(error);
@@ -292,6 +293,24 @@ app.post('/api/admin/submissions/counter-offer-response', authenticate, requireA
   }
 });
 
+app.post('/api/admin/submissions/accept', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const response = await adminRoutes.acceptSubmissionAndCreateInventory(req.body.submissionId);
+    res.status(response.success ? 200 : 400).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/submissions/reject', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const response = await adminRoutes.rejectSubmission(req.body.submissionId);
+    res.status(response.success ? 200 : 400).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/admin/inventory', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -332,6 +351,15 @@ app.put('/api/admin/inventory', authenticate, requireAdmin, async (req: Request,
 app.get('/api/admin/inventory/metrics', authenticate, requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const response = await adminRoutes.getInventoryMetricsRoute();
+    res.status(response.success ? 200 : 400).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/inventory/bulk-update', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const response = await adminRoutes.bulkUpdateInventory(req.body);
     res.status(response.success ? 200 : 400).json(response);
   } catch (error) {
     next(error);

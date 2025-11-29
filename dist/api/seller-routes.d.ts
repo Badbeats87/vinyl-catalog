@@ -70,9 +70,10 @@ export interface CreateListingRequest {
     sellingPrice: number;
     notes?: string;
 }
-export declare function createListing(request: CreateListingRequest): Promise<ApiResponse<{
+export declare function createListing(request: CreateListingRequest, userId: string): Promise<ApiResponse<{
     id: string;
     message: string;
+    submissionNumber: string;
 }>>;
 export {};
 //# sourceMappingURL=seller-routes.d.ts.map

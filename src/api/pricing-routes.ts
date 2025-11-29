@@ -5,7 +5,7 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Get all pricing policies
-router.get('/policies', async (req: Request, res: Response) => {
+router.get('/policies', async (_req: Request, res: Response) => {
   try {
     const policies = await prisma.pricingPolicy.findMany({
       orderBy: { createdAt: 'desc' },
@@ -17,7 +17,7 @@ router.get('/policies', async (req: Request, res: Response) => {
 });
 
 // Get active pricing policy
-router.get('/policy/active', async (req: Request, res: Response) => {
+router.get('/policy/active', async (_req: Request, res: Response) => {
   try {
     const policy = await prisma.pricingPolicy.findFirst({
       where: { isActive: true, scope: 'global' },

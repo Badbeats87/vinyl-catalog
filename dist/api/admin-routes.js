@@ -346,6 +346,25 @@ export async function updateInventory(input) {
         };
     }
 }
+export async function bulkUpdateInventory(input) {
+    try {
+        const { bulkUpdateInventoryLots } = await import('../services/inventory-management');
+        const result = await bulkUpdateInventoryLots(input.lotIds, input.updates);
+        return {
+            success: true,
+            data: result,
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'BULK_UPDATE_INVENTORY_ERROR',
+                message: error instanceof ValidationError ? error.message : 'Failed to bulk update inventory',
+            },
+        };
+    }
+}
 /**
  * Get inventory metrics
  */
@@ -558,6 +577,105 @@ export async function getSalesReconciliation(startDate, endDate, limit, offset) 
             error: {
                 code: 'RECONCILIATION_ERROR',
                 message: 'Failed to get sales reconciliation',
+            },
+        };
+    }
+}
+/**
+ * Accept submission and create inventory
+ */
+export async function acceptSubmissionAndCreateInventory(submissionId) {
+    try {
+        const { prisma } = await import('../db/client');
+        const { createInventoryLotFromSubmissionItem } = await import('../services/inventory-management');
+        // Find the submission
+        const submission = await prisma.sellerSubmission.findUnique({
+            where: { id: submissionId },
+            include: {
+                items: {
+                    include: {
+                        release: true,
+                    },
+                },
+            },
+        });
+        if (!submission) {
+            return {
+                success: false,
+                error: {
+                    code: 'NOT_FOUND',
+                    message: 'Submission not found',
+                },
+            };
+        }
+        // Update submission status
+        await prisma.sellerSubmission.update({
+            where: { id: submissionId },
+            data: { status: 'accepted' },
+        });
+        // Create inventory for each item
+        const createdLots = [];
+        for (const item of submission.items) {
+            try {
+                const lotId = await createInventoryLotFromSubmissionItem(item);
+                createdLots.push(lotId);
+            }
+            catch (err) {
+                console.error('Failed to create inventory for item:', err);
+            }
+        }
+        return {
+            success: true,
+            data: {
+                createdLots,
+                message: `Submission accepted and ${createdLots.length} lot(s) created`,
+            },
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'ACCEPT_SUBMISSION_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to accept submission',
+            },
+        };
+    }
+}
+/**
+ * Reject submission
+ */
+export async function rejectSubmission(submissionId) {
+    try {
+        const { prisma } = await import('../db/client');
+        // Find and update the submission
+        const submission = await prisma.sellerSubmission.findUnique({
+            where: { id: submissionId },
+        });
+        if (!submission) {
+            return {
+                success: false,
+                error: {
+                    code: 'NOT_FOUND',
+                    message: 'Submission not found',
+                },
+            };
+        }
+        await prisma.sellerSubmission.update({
+            where: { id: submissionId },
+            data: { status: 'rejected' },
+        });
+        return {
+            success: true,
+            data: null,
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'REJECT_SUBMISSION_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to reject submission',
             },
         };
     }

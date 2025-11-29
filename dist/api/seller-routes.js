@@ -2,6 +2,7 @@
  * Seller API Routes
  * Endpoints for seller submission workflows: search, quote, and submission
  */
+import { PrismaClient } from '@prisma/client';
 import { searchReleasesCatalog, formatSearchResults, generateQuotesForItems, createSellerSubmission, getSubmissionByNumber, getSubmissionsByEmail, getConditionTiers, } from '../services/seller-submissions';
 import { ValidationError } from '../validation/inputs';
 export async function searchCatalog(request) {
@@ -241,7 +242,7 @@ export async function getConditionOptions() {
         };
     }
 }
-export async function createListing(request) {
+export async function createListing(request, userId) {
     try {
         if (!request.discogsId || !request.title || !request.artist) {
             return {
@@ -252,15 +253,65 @@ export async function createListing(request) {
                 },
             };
         }
-        // For now, just return success - the actual listing creation would be implemented
-        // in the service layer with database persistence
-        return {
-            success: true,
-            data: {
-                id: `listing-${request.discogsId}-${Date.now()}`,
-                message: 'Listing created successfully',
-            },
-        };
+        // Create Prisma client for database operations
+        const prisma = new PrismaClient();
+        try {
+            // Create or find release
+            let release = await prisma.release.findFirst({
+                where: {
+                    artist: { mode: 'insensitive', equals: request.artist },
+                    title: { mode: 'insensitive', equals: request.title },
+                },
+            });
+            if (!release) {
+                release = await prisma.release.create({
+                    data: {
+                        title: request.title,
+                        artist: request.artist,
+                        label: request.label,
+                        catalogNumber: request.catalog,
+                        releaseYear: request.year,
+                        genre: request.genre,
+                        coverArtUrl: request.imageUrl,
+                    },
+                });
+            }
+            // Create seller submission
+            const submissionNumber = `SUB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+            const submission = await prisma.sellerSubmission.create({
+                data: {
+                    submissionNumber,
+                    sellerEmail: userId || 'unknown@demo.com',
+                    status: 'pending_review',
+                    expectedPayout: request.buyingPrice,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                    items: {
+                        create: {
+                            releaseId: release.id,
+                            quantity: 1,
+                            sellerConditionMedia: request.condition,
+                            sellerConditionSleeve: request.condition,
+                            autoOfferPrice: request.buyingPrice,
+                            itemNotes: request.notes,
+                        },
+                    },
+                },
+                include: {
+                    items: true,
+                },
+            });
+            return {
+                success: true,
+                data: {
+                    id: submission.id,
+                    submissionNumber,
+                    message: 'Listing created successfully',
+                },
+            };
+        }
+        finally {
+            await prisma.$disconnect();
+        }
     }
     catch (error) {
         return {

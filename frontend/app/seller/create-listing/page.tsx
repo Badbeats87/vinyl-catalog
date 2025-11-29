@@ -100,9 +100,13 @@ export default function CreateListing() {
     setLoading(true);
 
     try {
+      const { token } = useAuthStore.getState();
       const res = await fetch('/api/seller/listings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           discogsId: selectedRecord.discogsId,
           title: selectedRecord.title,

@@ -227,25 +227,90 @@ export async function getInventoryMetrics() {
         by: ['status'],
         _count: true,
     });
-    const totalValue = await prisma.inventoryLot.aggregate({
-        _sum: {
+    // Get all lots to calculate value accounting for quantity
+    const allLots = await prisma.inventoryLot.findMany({
+        select: {
             listPrice: true,
-        },
-    });
-    const totalCost = await prisma.inventoryLot.aggregate({
-        where: { status: { not: 'sold' } },
-        _sum: {
             costBasis: true,
+            quantity: true,
+            status: true,
         },
     });
+    // Calculate totals accounting for quantity
+    let totalInventoryValue = 0;
+    let totalCostBasis = 0;
+    for (const lot of allLots) {
+        totalInventoryValue += lot.listPrice * lot.quantity;
+        if (lot.status !== 'sold') {
+            totalCostBasis += lot.costBasis * lot.quantity;
+        }
+    }
     return {
         totalLots: total,
         lotsByStatus: statusCounts.map(sc => ({
             status: sc.status,
             count: sc._count,
         })),
-        totalInventoryValue: totalValue._sum.listPrice || 0,
-        totalCostBasis: totalCost._sum.costBasis || 0,
+        totalInventoryValue,
+        totalCostBasis,
     };
+}
+/**
+ * Bulk update inventory lots
+ */
+export async function bulkUpdateInventoryLots(lotIds, updates) {
+    const errors = [];
+    let updatedCount = 0;
+    // Validate lot IDs exist
+    const lots = await prisma.inventoryLot.findMany({
+        where: { id: { in: lotIds } },
+    });
+    if (lots.length !== lotIds.length) {
+        const foundIds = new Set(lots.map(l => l.id));
+        const missingIds = lotIds.filter(id => !foundIds.has(id));
+        errors.push(`Lots not found: ${missingIds.join(', ')}`);
+    }
+    // Process updates for each lot
+    for (const lot of lots) {
+        try {
+            const updateData = {};
+            if (updates.status) {
+                updateData.status = updates.status;
+            }
+            if (updates.channel) {
+                updateData.channel = updates.channel;
+            }
+            if (updates.priceUpdate) {
+                let newPrice = lot.listPrice;
+                switch (updates.priceUpdate.type) {
+                    case 'set':
+                        newPrice = updates.priceUpdate.value;
+                        break;
+                    case 'increase_amount':
+                        newPrice = lot.listPrice + updates.priceUpdate.value;
+                        break;
+                    case 'increase_percent':
+                        newPrice = lot.listPrice * (1 + updates.priceUpdate.value / 100);
+                        break;
+                    case 'decrease_amount':
+                        newPrice = lot.listPrice - updates.priceUpdate.value;
+                        break;
+                    case 'decrease_percent':
+                        newPrice = lot.listPrice * (1 - updates.priceUpdate.value / 100);
+                        break;
+                }
+                updateData.listPrice = Math.max(0, newPrice);
+            }
+            await prisma.inventoryLot.update({
+                where: { id: lot.id },
+                data: updateData,
+            });
+            updatedCount++;
+        }
+        catch (error) {
+            errors.push(`Failed to update lot ${lot.lotNumber}: ${error.message}`);
+        }
+    }
+    return { updatedCount, errors };
 }
 //# sourceMappingURL=inventory-management.js.map

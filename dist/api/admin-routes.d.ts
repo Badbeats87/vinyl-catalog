@@ -111,6 +111,21 @@ export interface UpdateInventoryInput {
  */
 export declare function updateInventory(input: UpdateInventoryInput): Promise<ApiResponse<null>>;
 /**
+ * Bulk update inventory lots
+ */
+export interface BulkUpdateInventoryInput {
+    lotIds: string[];
+    updates: {
+        status?: string;
+        channel?: string;
+        priceUpdate?: {
+            type: 'set' | 'increase_amount' | 'increase_percent' | 'decrease_amount' | 'decrease_percent';
+            value: number;
+        };
+    };
+}
+export declare function bulkUpdateInventory(input: BulkUpdateInventoryInput): Promise<ApiResponse<any>>;
+/**
  * Get inventory metrics
  */
 export declare function getInventoryMetricsRoute(): Promise<ApiResponse<any>>;
@@ -126,4 +141,12 @@ export declare function getBuyerOrderDetail(orderId: string): Promise<ApiRespons
  * Get sales reconciliation data - link lots to orders
  */
 export declare function getSalesReconciliation(startDate?: string, endDate?: string, limit?: number, offset?: number): Promise<ApiResponse<any>>;
+/**
+ * Accept submission and create inventory
+ */
+export declare function acceptSubmissionAndCreateInventory(submissionId: string): Promise<ApiResponse<any>>;
+/**
+ * Reject submission
+ */
+export declare function rejectSubmission(submissionId: string): Promise<ApiResponse<null>>;
 //# sourceMappingURL=admin-routes.d.ts.map

@@ -47,7 +47,14 @@ export async function listAdminSubmissions(filters = {}) {
         skip: offset,
         include: {
             items: {
-                select: { id: true },
+                include: {
+                    release: {
+                        select: {
+                            title: true,
+                            artist: true,
+                        },
+                    },
+                },
             },
         },
     });
@@ -62,6 +69,10 @@ export async function listAdminSubmissions(filters = {}) {
             expectedPayout: sub.expectedPayout || 0,
             actualPayout: sub.actualPayout || undefined,
             itemCount: sub.items.length,
+            items: sub.items.map(item => ({
+                id: item.id,
+                release: item.release,
+            })),
             createdAt: sub.createdAt,
             expiresAt: sub.expiresAt,
         })),

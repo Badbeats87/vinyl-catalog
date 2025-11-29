@@ -56,34 +56,11 @@ interface AnalyticStats {
 export default function AdminDashboard() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'submissions' | 'search' | 'pricing' | 'analytics'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'search' | 'pricing' | 'analytics' | 'inventory'>('submissions');
 
-  const [submissions, setSubmissions] = useState<Submission[]>([
-    {
-      id: '1',
-      seller: 'seller@demo.com',
-      album: 'Thriller',
-      artist: 'Michael Jackson',
-      submittedAt: '2024-11-28',
-      status: 'pending',
-    },
-    {
-      id: '2',
-      seller: 'seller2@demo.com',
-      album: 'The Wall',
-      artist: 'Pink Floyd',
-      submittedAt: '2024-11-27',
-      status: 'pending',
-    },
-    {
-      id: '3',
-      seller: 'seller@demo.com',
-      album: 'Dark Side of the Moon',
-      artist: 'Pink Floyd',
-      submittedAt: '2024-11-26',
-      status: 'approved',
-    },
-  ]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(true);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -134,11 +111,105 @@ export default function AdminDashboard() {
     averageProfitMargin: 0,
   });
 
+  // Inventory state
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+  const [inventoryMetrics, setInventoryMetrics] = useState<any>(null);
+  const [inventoryFilters, setInventoryFilters] = useState({
+    status: '',
+    channel: '',
+    minPrice: '',
+    maxPrice: ''
+  });
+  const [selectedLots, setSelectedLots] = useState<Set<string>>(new Set());
+  const [editingLot, setEditingLot] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkUpdateOption, setBulkUpdateOption] = useState<'status' | 'price' | 'channel'>('status');
+  const [bulkStatusValue, setBulkStatusValue] = useState('live');
+  const [bulkChannelValue, setBulkChannelValue] = useState('web');
+  const [bulkPriceType, setBulkPriceType] = useState<'set' | 'increase_amount' | 'increase_percent' | 'decrease_amount' | 'decrease_percent'>('set');
+  const [bulkPriceValue, setBulkPriceValue] = useState(0);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [currentInventoryPage, setCurrentInventoryPage] = useState(1);
+  const [inventoryPerPage] = useState(20);
+
+  // Creation wizard state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createStep, setCreateStep] = useState<'release' | 'condition' | 'details' | 'review'>(
+    'release'
+  );
+  const [createSearchQuery, setCreateSearchQuery] = useState('');
+  const [createSearchResults, setCreateSearchResults] = useState<SearchResult[]>([]);
+  const [createSearchLoading, setCreateSearchLoading] = useState(false);
+  const [createManualEntry, setCreateManualEntry] = useState(false);
+  const [selectedRelease, setSelectedRelease] = useState<SearchResult | null>(null);
+  const [createFormData, setCreateFormData] = useState({
+    title: '',
+    artist: '',
+    label: '',
+    year: 0,
+    conditionMedia: 'Very Good',
+    conditionSleeve: 'Very Good',
+    costBasis: 0,
+    listPrice: 0,
+    quantity: 1,
+    channel: 'web',
+    status: 'draft',
+    internalNotes: '',
+  });
+  const [createLoading, setCreateLoading] = useState(false);
+
+  // Lot detail view state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailLot, setDetailLot] = useState<any>(null);
+
   useEffect(() => {
     if (!user || user.userType !== 'admin') {
       router.push('/');
     }
   }, [user, router]);
+
+  // Fetch submissions from API
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      try {
+        setSubmissionsLoading(true);
+        setSubmissionsError(null);
+        const { token } = useAuthStore.getState();
+        const res = await fetch('/api/admin/submissions', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const data = await res.json();
+        if (data.success && data.data?.submissions) {
+          // Transform the database records to match the UI format
+          const transformed = data.data.submissions.map((submission: any) => ({
+            id: submission.id,
+            seller: submission.sellerEmail,
+            album: submission.items?.[0]?.release?.title || 'Unknown Album',
+            artist: submission.items?.[0]?.release?.artist || 'Unknown Artist',
+            submittedAt: new Date(submission.createdAt).toISOString().split('T')[0],
+            status: submission.status === 'pending_review' ? 'pending' : submission.status,
+          }));
+          setSubmissions(transformed);
+        } else {
+          setSubmissionsError(data.error?.message || 'Failed to load submissions');
+        }
+      } catch (err) {
+        console.error('Error fetching submissions:', err);
+        setSubmissionsError('Failed to load submissions');
+      } finally {
+        setSubmissionsLoading(false);
+      }
+    };
+
+    if (user?.userType === 'admin') {
+      fetchSubmissions();
+    }
+  }, [user]);
 
   // Load currency preference from localStorage on mount
   useEffect(() => {
@@ -182,6 +253,68 @@ export default function AdminDashboard() {
     };
     loadPolicies();
   }, []);
+
+  // Fetch inventory data
+  useEffect(() => {
+    const fetchInventory = async () => {
+      if (activeTab !== 'inventory') return;
+      try {
+        setInventoryLoading(true);
+        setInventoryError(null);
+        const { token } = useAuthStore.getState();
+
+        // Build query params from filters
+        const params = new URLSearchParams();
+        if (inventoryFilters.status) params.append('status', inventoryFilters.status);
+        if (inventoryFilters.channel) params.append('channel', inventoryFilters.channel);
+        if (inventoryFilters.minPrice) params.append('minPrice', inventoryFilters.minPrice);
+        if (inventoryFilters.maxPrice) params.append('maxPrice', inventoryFilters.maxPrice);
+        params.append('limit', inventoryPerPage.toString());
+        params.append('offset', ((currentInventoryPage - 1) * inventoryPerPage).toString());
+
+        const res = await fetch(`/api/admin/inventory?${params.toString()}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const data = await res.json();
+        if (data.success) {
+          setInventory(data.data?.lots || []);
+        } else {
+          setInventoryError(data.error?.message || 'Failed to load inventory');
+        }
+      } catch (err) {
+        console.error('Error fetching inventory:', err);
+        setInventoryError('Failed to load inventory');
+      } finally {
+        setInventoryLoading(false);
+      }
+    };
+
+    // Fetch metrics
+    const fetchMetrics = async () => {
+      if (activeTab !== 'inventory') return;
+      try {
+        const { token } = useAuthStore.getState();
+        const res = await fetch('/api/admin/inventory/metrics', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const data = await res.json();
+        if (data.success) {
+          setInventoryMetrics(data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching inventory metrics:', err);
+      }
+    };
+
+    if (user?.userType === 'admin') {
+      fetchInventory();
+      fetchMetrics();
+    }
+  }, [user, activeTab, inventoryFilters, currentInventoryPage, inventoryPerPage]);
 
   const handleLogout = () => {
     logout();
@@ -415,6 +548,63 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCreateLot = async () => {
+    try {
+      setCreateLoading(true);
+      const { token } = useAuthStore.getState();
+
+      // Search for or create the release first
+      let releaseId = '';
+      if (selectedRelease?.id === 'manual') {
+        // Create a release manually
+        const prisma = new (await import('@prisma/client')).PrismaClient();
+        // For now, we'll just use the title as ID - in production, create via API
+        releaseId = createFormData.title.toLowerCase().replace(/\s+/g, '-');
+      } else if (selectedRelease?.discogsId) {
+        // Use the search result's Discogs ID to find or create release
+        releaseId = `discogs-${selectedRelease.discogsId}`;
+      }
+
+      // Create the inventory lot
+      const res = await fetch('/api/seller/listings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          discogsId: selectedRelease?.discogsId || 0,
+          title: createFormData.title,
+          artist: createFormData.artist,
+          year: createFormData.year,
+          label: createFormData.label,
+          genre: '',
+          format: 'Vinyl',
+          imageUrl: selectedRelease?.imageUrl || '',
+          condition: createFormData.conditionMedia,
+          buyingPrice: createFormData.costBasis,
+          sellingPrice: createFormData.listPrice,
+          notes: createFormData.internalNotes,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('Lot created successfully!');
+        setShowCreateModal(false);
+        // Refresh inventory
+        window.location.reload();
+      } else {
+        alert('Failed to create lot: ' + (data.error?.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error creating lot:', err);
+      alert('Failed to create lot');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   const pendingCount = submissions.filter((s) => s.status === 'pending').length;
   const approvedCount = submissions.filter((s) => s.status === 'approved').length;
   const rejectedCount = submissions.filter((s) => s.status === 'rejected').length;
@@ -480,6 +670,16 @@ export default function AdminDashboard() {
           >
             Analytics
           </button>
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`pb-4 text-sm font-medium transition ${
+              activeTab === 'inventory'
+                ? 'text-gray-900 border-b-2 border-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Inventory
+          </button>
         </div>
 
         {/* SUBMISSIONS TAB */}
@@ -506,64 +706,128 @@ export default function AdminDashboard() {
             </div>
 
             {/* Submissions Table */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Seller</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Album</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Artist</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {submissions.map((submission) => (
-                    <tr key={submission.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-sm text-gray-900">{submission.seller}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">{submission.album}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{submission.artist}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{submission.submittedAt}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2.5 py-1 rounded text-xs font-medium ${
-                            submission.status === 'pending'
-                              ? 'bg-yellow-50 text-yellow-700'
-                              : submission.status === 'approved'
-                              ? 'bg-green-50 text-green-700'
-                              : 'bg-red-50 text-red-700'
-                          }`}
-                        >
-                          {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {submission.status === 'pending' && (
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => handleApprove(submission.id)}
-                              className="text-green-600 hover:text-green-700 font-medium transition"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleReject(submission.id)}
-                              className="text-red-600 hover:text-red-700 font-medium transition"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                        {submission.status !== 'pending' && (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+            {submissionsLoading && (
+              <div className="border border-gray-200 rounded-lg p-8 text-center">
+                <div className="text-gray-600">Loading submissions...</div>
+              </div>
+            )}
+
+            {submissionsError && (
+              <div className="border border-red-200 rounded-lg p-4 bg-red-50 text-red-700 text-sm">
+                {submissionsError}
+              </div>
+            )}
+
+            {!submissionsLoading && !submissionsError && submissions.length === 0 && (
+              <div className="border border-gray-200 rounded-lg p-8 text-center">
+                <div className="text-gray-600">No submissions yet</div>
+              </div>
+            )}
+
+            {!submissionsLoading && !submissionsError && submissions.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Seller</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Album</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Artist</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {submissions.map((submission) => {
+                      return (
+                        <tr key={submission.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 text-sm text-gray-900">{submission.seller}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900 font-medium">{submission.album}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{submission.artist}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{submission.submittedAt}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2.5 py-1 rounded text-xs font-medium ${
+                                submission.status === 'pending'
+                                  ? 'bg-yellow-50 text-yellow-700'
+                                  : submission.status === 'approved'
+                                  ? 'bg-green-50 text-green-700'
+                                  : 'bg-red-50 text-red-700'
+                              }`}
+                            >
+                              {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            {submission.status === 'pending' && (
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const { token } = useAuthStore.getState();
+                                      const res = await fetch('/api/admin/submissions/accept', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                        },
+                                        body: JSON.stringify({ submissionId: submission.id }),
+                                      });
+                                      if (res.ok) {
+                                        handleApprove(submission.id);
+                                        alert('Submission accepted and inventory created!');
+                                      } else {
+                                        alert('Failed to accept submission');
+                                      }
+                                    } catch (err) {
+                                      console.error('Error accepting submission:', err);
+                                      alert('Failed to accept submission');
+                                    }
+                                  }}
+                                  className="text-green-600 hover:text-green-700 font-medium transition"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const { token } = useAuthStore.getState();
+                                      const res = await fetch('/api/admin/submissions/reject', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                        },
+                                        body: JSON.stringify({ submissionId: submission.id }),
+                                      });
+                                      if (res.ok) {
+                                        handleReject(submission.id);
+                                        alert('Submission rejected');
+                                      } else {
+                                        alert('Failed to reject submission');
+                                      }
+                                    } catch (err) {
+                                      console.error('Error rejecting submission:', err);
+                                      alert('Failed to reject submission');
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-700 font-medium transition"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                            {submission.status !== 'pending' && (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
 
@@ -800,16 +1064,41 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Actions */}
-                        <div className="border-t border-gray-200 pt-4 flex gap-3">
+                        <div className="border-t border-gray-200 pt-4 space-y-2">
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => handleImport(result)}
+                              className="flex-1 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded text-sm transition-colors">
+                              Import
+                            </button>
+                            <button
+                              onClick={() => handleGetPriceSuggestions(result)}
+                              className="flex-1 px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 font-medium rounded text-sm transition-colors">
+                              View Prices
+                            </button>
+                          </div>
                           <button
-                            onClick={() => handleImport(result)}
-                            className="flex-1 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded text-sm transition-colors">
-                            Import
-                          </button>
-                          <button
-                            onClick={() => handleGetPriceSuggestions(result)}
-                            className="flex-1 px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 font-medium rounded text-sm transition-colors">
-                            View Prices
+                            onClick={() => {
+                              setShowCreateModal(true);
+                              setCreateStep('condition');
+                              setSelectedRelease(result);
+                              setCreateFormData({
+                                title: result.title,
+                                artist: result.artist,
+                                label: result.label,
+                                year: result.year || 0,
+                                conditionMedia: 'Very Good',
+                                conditionSleeve: 'Very Good',
+                                costBasis: 0,
+                                listPrice: result.price || 0,
+                                quantity: 1,
+                                channel: 'web',
+                                status: 'draft',
+                                internalNotes: '',
+                              });
+                            }}
+                            className="w-full px-4 py-2 border border-blue-300 hover:bg-blue-50 text-blue-700 font-medium rounded text-sm transition-colors">
+                            + Add to Inventory
                           </button>
                         </div>
                       </div>
@@ -1253,6 +1542,1276 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* INVENTORY TAB */}
+        {activeTab === 'inventory' && (
+          <div className="space-y-8">
+            {/* Create Lot Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setShowCreateModal(true);
+                  setCreateStep('release');
+                  setSelectedRelease(null);
+                  setCreateManualEntry(false);
+                  setCreateSearchQuery('');
+                  setCreateSearchResults([]);
+                  setCreateFormData({
+                    title: '',
+                    artist: '',
+                    label: '',
+                    year: 0,
+                    conditionMedia: 'Very Good',
+                    conditionSleeve: 'Very Good',
+                    costBasis: 0,
+                    listPrice: 0,
+                    quantity: 1,
+                    channel: 'web',
+                    status: 'draft',
+                    internalNotes: '',
+                  });
+                }}
+                className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition"
+              >
+                + Create Lot
+              </button>
+            </div>
+
+            {/* Metrics Dashboard */}
+            {inventoryMetrics && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Total Lots</div>
+                  <div className="text-3xl font-light text-gray-900">{inventoryMetrics.totalLots || 0}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Inventory Value</div>
+                  <div className="text-3xl font-light text-gray-900">${(inventoryMetrics.totalValue || 0).toFixed(2)}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Cost Basis</div>
+                  <div className="text-3xl font-light text-gray-900">${(inventoryMetrics.totalCost || 0).toFixed(2)}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">Potential Profit</div>
+                  <div className="text-3xl font-light text-gray-900">${(inventoryMetrics.potentialProfit || 0).toFixed(2)}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Status Breakdown */}
+            {inventoryMetrics && (
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <div className="border border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Draft</div>
+                  <div className="text-2xl font-light text-gray-900">{inventoryMetrics.statusBreakdown?.draft || 0}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Live</div>
+                  <div className="text-2xl font-light text-gray-900">{inventoryMetrics.statusBreakdown?.live || 0}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Reserved</div>
+                  <div className="text-2xl font-light text-gray-900">{inventoryMetrics.statusBreakdown?.reserved || 0}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Sold</div>
+                  <div className="text-2xl font-light text-gray-900">{inventoryMetrics.statusBreakdown?.sold || 0}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Returned</div>
+                  <div className="text-2xl font-light text-gray-900">{inventoryMetrics.statusBreakdown?.returned || 0}</div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Damaged</div>
+                  <div className="text-2xl font-light text-gray-900">{inventoryMetrics.statusBreakdown?.damaged || 0}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Filter Controls */}
+            <div className="border border-gray-200 rounded-lg p-6 bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Status</label>
+                  <select
+                    value={inventoryFilters.status}
+                    onChange={(e) => {
+                      setInventoryFilters({...inventoryFilters, status: e.target.value});
+                      setCurrentInventoryPage(1);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                  >
+                    <option value="">All</option>
+                    <option value="draft">Draft</option>
+                    <option value="live">Live</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Sold</option>
+                    <option value="returned">Returned</option>
+                    <option value="damaged">Damaged</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Channel</label>
+                  <select
+                    value={inventoryFilters.channel}
+                    onChange={(e) => {
+                      setInventoryFilters({...inventoryFilters, channel: e.target.value});
+                      setCurrentInventoryPage(1);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                  >
+                    <option value="">All</option>
+                    <option value="web">Web</option>
+                    <option value="store_walkIn">Store Walk-In</option>
+                    <option value="discogs">Discogs</option>
+                    <option value="ebay">eBay</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Min Price</label>
+                  <input
+                    type="number"
+                    value={inventoryFilters.minPrice}
+                    onChange={(e) => {
+                      setInventoryFilters({...inventoryFilters, minPrice: e.target.value});
+                      setCurrentInventoryPage(1);
+                    }}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Max Price</label>
+                  <input
+                    type="number"
+                    value={inventoryFilters.maxPrice}
+                    onChange={(e) => {
+                      setInventoryFilters({...inventoryFilters, maxPrice: e.target.value});
+                      setCurrentInventoryPage(1);
+                    }}
+                    placeholder="999999"
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setInventoryFilters({status: '', channel: '', minPrice: '', maxPrice: ''});
+                      setCurrentInventoryPage(1);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 rounded text-sm font-medium transition"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Inventory Table */}
+            {inventoryLoading && (
+              <div className="border border-gray-200 rounded-lg p-8 text-center">
+                <div className="text-gray-600">Loading inventory...</div>
+              </div>
+            )}
+
+            {inventoryError && (
+              <div className="border border-red-200 rounded-lg p-4 bg-red-50 text-red-700 text-sm">
+                {inventoryError}
+              </div>
+            )}
+
+            {!inventoryLoading && !inventoryError && inventory.length === 0 && (
+              <div className="border border-gray-200 rounded-lg p-8 text-center">
+                <div className="text-gray-600">No inventory items found</div>
+              </div>
+            )}
+
+            {/* Bulk Selection Banner */}
+            {selectedLots.size > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex justify-between items-center">
+                <span className="text-sm text-blue-700 font-medium">{selectedLots.size} lot{selectedLots.size !== 1 ? 's' : ''} selected</span>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSelectedLots(new Set())}
+                    className="px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded hover:bg-blue-100 transition"
+                  >
+                    Clear Selection
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Will open bulk actions modal
+                      setShowBulkModal(true);
+                    }}
+                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                  >
+                    Bulk Actions
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!inventoryLoading && !inventoryError && inventory.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      // Generate CSV from inventory data
+                      const headers = ['Lot #', 'Album', 'Artist', 'Cost', 'Price', 'Qty', 'Status', 'Channel', 'Condition', 'Notes'];
+                      const rows = inventory.map(lot => [
+                        lot.lotNumber,
+                        lot.release?.title || 'Unknown',
+                        lot.release?.artist || 'Unknown',
+                        lot.costBasis?.toFixed(2) || '0.00',
+                        lot.listPrice?.toFixed(2) || '0.00',
+                        lot.quantity,
+                        lot.status,
+                        lot.channel,
+                        `${lot.conditionMedia} / ${lot.conditionSleeve}`,
+                        lot.internalNotes || '',
+                      ]);
+
+                      const csvContent = [
+                        headers.join(','),
+                        ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+                      ].join('\n');
+
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`;
+                      link.click();
+                      window.URL.revokeObjectURL(url);
+                    }}
+                    className="px-4 py-2 border border-gray-300 hover:border-gray-400 text-gray-900 rounded-lg text-sm font-medium transition"
+                  >
+                    ↓ Export to CSV
+                  </button>
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                        <input
+                          type="checkbox"
+                          checked={selectedLots.size === inventory.length && inventory.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLots(new Set(inventory.map(lot => lot.id)));
+                            } else {
+                              setSelectedLots(new Set());
+                            }
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                        />
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot #</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Album</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Artist</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Cost</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Price</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Qty</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Channel</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory.map((lot) => {
+                      return (
+                        <tr key={lot.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedLots.has(lot.id)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedLots);
+                                if (e.target.checked) {
+                                  newSelected.add(lot.id);
+                                } else {
+                                  newSelected.delete(lot.id);
+                                }
+                                setSelectedLots(newSelected);
+                              }}
+                              className="w-4 h-4 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <button
+                              onClick={() => {
+                                setDetailLot(lot);
+                                setShowDetailModal(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-700 font-medium transition"
+                            >
+                              {lot.lotNumber}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">{lot.release?.title || 'Unknown Album'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{lot.release?.artist || 'Unknown Artist'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900">${lot.costBasis?.toFixed(2) || '0.00'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            <input
+                              type="number"
+                              value={lot.listPrice || 0}
+                              onChange={async (e) => {
+                                const newPrice = parseFloat(e.target.value) || 0;
+                                try {
+                                  const { token } = useAuthStore.getState();
+                                  const res = await fetch(`/api/admin/inventory`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                    },
+                                    body: JSON.stringify({
+                                      id: lot.id,
+                                      listPrice: newPrice,
+                                    }),
+                                  });
+                                  if (res.ok) {
+                                    setInventory(prev => prev.map(l => l.id === lot.id ? {...l, listPrice: newPrice} : l));
+                                  }
+                                } catch (err) {
+                                  console.error('Error updating price:', err);
+                                }
+                              }}
+                              step="0.01"
+                              className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{lot.quantity}</td>
+                          <td className="px-6 py-4">
+                            <select
+                              value={lot.status}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value;
+                                try {
+                                  const { token } = useAuthStore.getState();
+                                  const res = await fetch(`/api/admin/inventory`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                    },
+                                    body: JSON.stringify({
+                                      id: lot.id,
+                                      status: newStatus,
+                                    }),
+                                  });
+                                  if (res.ok) {
+                                    setInventory(prev => prev.map(l => l.id === lot.id ? {...l, status: newStatus} : l));
+                                  }
+                                } catch (err) {
+                                  console.error('Error updating status:', err);
+                                }
+                              }}
+                              className={`px-2 py-1 rounded text-xs font-medium border ${
+                                lot.status === 'draft'
+                                  ? 'bg-gray-100 text-gray-700'
+                                  : lot.status === 'live'
+                                  ? 'bg-green-50 text-green-700'
+                                  : lot.status === 'reserved'
+                                  ? 'bg-yellow-50 text-yellow-700'
+                                  : lot.status === 'sold'
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : lot.status === 'returned'
+                                  ? 'bg-orange-50 text-orange-700'
+                                  : 'bg-red-50 text-red-700'
+                              }`}
+                            >
+                              <option value="draft">Draft</option>
+                              <option value="live">Live</option>
+                              <option value="reserved">Reserved</option>
+                              <option value="sold">Sold</option>
+                              <option value="returned">Returned</option>
+                              <option value="damaged">Damaged</option>
+                            </select>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {lot.channel === 'store_walkIn' ? 'Store Walk-In' : lot.channel?.charAt(0).toUpperCase() + lot.channel?.slice(1)}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <button
+                              onClick={() => {
+                                setEditingLot(lot);
+                                setShowEditModal(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-700 font-medium transition"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!inventoryLoading && inventory.length > 0 && (
+              <div className="flex justify-between items-center mt-6">
+                <div className="text-sm text-gray-600">
+                  Showing {((currentInventoryPage - 1) * inventoryPerPage) + 1} - {Math.min(currentInventoryPage * inventoryPerPage, inventory.length)} of ~{inventoryMetrics?.totalLots || 0}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCurrentInventoryPage(Math.max(1, currentInventoryPage - 1))}
+                    disabled={currentInventoryPage === 1}
+                    className="px-4 py-2 border border-gray-300 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 rounded text-sm font-medium transition"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentInventoryPage(currentInventoryPage + 1)}
+                    disabled={inventory.length < inventoryPerPage}
+                    className="px-4 py-2 border border-gray-300 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 rounded text-sm font-medium transition"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Lot Detail Modal */}
+            {showDetailModal && detailLot && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                  {/* Modal Header */}
+                  <div className="border-b border-gray-200 p-6 flex justify-between items-center sticky top-0 bg-white">
+                    <h2 className="text-2xl font-light text-gray-900">Lot {detailLot.lotNumber}</h2>
+                    <button
+                      onClick={() => setShowDetailModal(false)}
+                      className="text-gray-400 hover:text-gray-600 text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6 space-y-6">
+                    {/* Release Info */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Release Information</h3>
+                      <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Title:</span>
+                          <span className="text-gray-900 font-medium">{detailLot.release?.title || 'Unknown'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Artist:</span>
+                          <span className="text-gray-900 font-medium">{detailLot.release?.artist || 'Unknown'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Condition & Pricing */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Condition & Pricing</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Media Condition</div>
+                          <div className="text-gray-900 font-medium">{detailLot.conditionMedia}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Sleeve Condition</div>
+                          <div className="text-gray-900 font-medium">{detailLot.conditionSleeve}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Cost Basis</div>
+                          <div className="text-gray-900 font-medium">${detailLot.costBasis?.toFixed(2)}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">List Price</div>
+                          <div className="text-gray-900 font-medium">${detailLot.listPrice?.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Inventory Details */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Inventory Details</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Quantity</div>
+                          <div className="text-gray-900 font-medium">{detailLot.quantity}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Channel</div>
+                          <div className="text-gray-900 font-medium">
+                            {detailLot.channel === 'store_walkIn' ? 'Store Walk-In' : detailLot.channel}
+                          </div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Status</div>
+                          <div className="text-gray-900 font-medium">{detailLot.status}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs text-gray-600 uppercase mb-2">Created</div>
+                          <div className="text-gray-900 font-medium">
+                            {new Date(detailLot.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Internal Notes */}
+                    {detailLot.internalNotes && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Internal Notes</h3>
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 text-gray-900">
+                          {detailLot.internalNotes}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="border-t border-gray-200 p-6 flex gap-3 bg-gray-50">
+                    <button
+                      onClick={() => setShowDetailModal(false)}
+                      className="flex-1 px-4 py-3 border border-gray-300 hover:border-gray-400 text-gray-900 rounded-lg font-medium transition"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingLot(detailLot);
+                        setShowEditModal(true);
+                        setShowDetailModal(false);
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium transition"
+                    >
+                      Edit Lot
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Create Lot Wizard Modal */}
+            {showCreateModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                  {/* Modal Header */}
+                  <div className="border-b border-gray-200 p-6 flex justify-between items-center sticky top-0 bg-white">
+                    <h2 className="text-2xl font-light text-gray-900">
+                      {createStep === 'release'
+                        ? 'Select Release'
+                        : createStep === 'condition'
+                        ? 'Condition & Pricing'
+                        : createStep === 'details'
+                        ? 'Inventory Details'
+                        : 'Review & Create'}
+                    </h2>
+                    <button
+                      onClick={() => setShowCreateModal(false)}
+                      className="text-gray-400 hover:text-gray-600 text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6 space-y-6">
+                    {/* Step 1: Select Release */}
+                    {createStep === 'release' && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Search Method</label>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setCreateManualEntry(false)}
+                              className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
+                                !createManualEntry
+                                  ? 'bg-gray-900 text-white'
+                                  : 'border border-gray-300 text-gray-700 hover:border-gray-400'
+                              }`}
+                            >
+                              Search Discogs
+                            </button>
+                            <button
+                              onClick={() => setCreateManualEntry(true)}
+                              className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
+                                createManualEntry
+                                  ? 'bg-gray-900 text-white'
+                                  : 'border border-gray-300 text-gray-700 hover:border-gray-400'
+                              }`}
+                            >
+                              Enter Manually
+                            </button>
+                          </div>
+                        </div>
+
+                        {!createManualEntry ? (
+                          <>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Search Query</label>
+                              <input
+                                type="text"
+                                value={createSearchQuery}
+                                onChange={(e) => setCreateSearchQuery(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleCreateSearch();
+                                  }
+                                }}
+                                placeholder="Artist, album, or catalog number"
+                                className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                              />
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (!createSearchQuery.trim()) return;
+                                setCreateSearchLoading(true);
+                                try {
+                                  const res = await fetch('/api/search/discogs', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ query: createSearchQuery, currency, deduplicateByMaster: false }),
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                    setCreateSearchResults(data.results || []);
+                                  }
+                                } catch (err) {
+                                  console.error('Search failed:', err);
+                                } finally {
+                                  setCreateSearchLoading(false);
+                                }
+                              }}
+                              disabled={createSearchLoading || !createSearchQuery.trim()}
+                              className="w-full px-4 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white rounded-lg font-medium transition"
+                            >
+                              {createSearchLoading ? 'Searching...' : 'Search'}
+                            </button>
+
+                            {createSearchResults.length > 0 && (
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {createSearchResults.map((result) => (
+                                  <button
+                                    key={result.id}
+                                    onClick={() => {
+                                      setSelectedRelease(result);
+                                      setCreateFormData({
+                                        ...createFormData,
+                                        title: result.title,
+                                        artist: result.artist,
+                                        label: result.label,
+                                        year: result.year || 0,
+                                      });
+                                    }}
+                                    className="w-full text-left px-4 py-3 border border-gray-200 hover:border-gray-400 rounded-lg transition"
+                                  >
+                                    <div className="font-medium text-gray-900">{result.title}</div>
+                                    <div className="text-sm text-gray-600">{result.artist} • {result.year}</div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Title</label>
+                              <input
+                                type="text"
+                                value={createFormData.title}
+                                onChange={(e) => setCreateFormData({...createFormData, title: e.target.value})}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Artist</label>
+                              <input
+                                type="text"
+                                value={createFormData.artist}
+                                onChange={(e) => setCreateFormData({...createFormData, artist: e.target.value})}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Label</label>
+                                <input
+                                  type="text"
+                                  value={createFormData.label}
+                                  onChange={(e) => setCreateFormData({...createFormData, label: e.target.value})}
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Year</label>
+                                <input
+                                  type="number"
+                                  value={createFormData.year}
+                                  onChange={(e) => setCreateFormData({...createFormData, year: parseInt(e.target.value) || 0})}
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                                />
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSelectedRelease({
+                                  id: 'manual',
+                                  discogsId: 0,
+                                  title: createFormData.title,
+                                  artist: createFormData.artist,
+                                  year: createFormData.year,
+                                  label: createFormData.label,
+                                  price: null,
+                                  condition: null,
+                                  imageUrl: '',
+                                  genre: '',
+                                  format: '',
+                                  rpm: 0,
+                                  pressType: '',
+                                  catalog: '',
+                                  notes: '',
+                                });
+                              }}
+                              className="w-full px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium transition"
+                            >
+                              Continue
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step 2: Condition & Pricing */}
+                    {createStep === 'condition' && selectedRelease && (
+                      <div className="space-y-4">
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div className="font-medium text-gray-900">{selectedRelease.title}</div>
+                          <div className="text-sm text-gray-600">{selectedRelease.artist}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Media Condition</label>
+                            <select
+                              value={createFormData.conditionMedia}
+                              onChange={(e) => setCreateFormData({...createFormData, conditionMedia: e.target.value})}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                            >
+                              <option>Mint</option>
+                              <option>Near Mint</option>
+                              <option>Very Good Plus</option>
+                              <option>Very Good</option>
+                              <option>Good Plus</option>
+                              <option>Good</option>
+                              <option>Fair</option>
+                              <option>Poor</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sleeve Condition</label>
+                            <select
+                              value={createFormData.conditionSleeve}
+                              onChange={(e) => setCreateFormData({...createFormData, conditionSleeve: e.target.value})}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                            >
+                              <option>Mint</option>
+                              <option>Near Mint</option>
+                              <option>Very Good Plus</option>
+                              <option>Very Good</option>
+                              <option>Good Plus</option>
+                              <option>Good</option>
+                              <option>Fair</option>
+                              <option>Poor</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Cost Basis ($)</label>
+                            <input
+                              type="number"
+                              value={createFormData.costBasis}
+                              onChange={(e) => setCreateFormData({...createFormData, costBasis: parseFloat(e.target.value) || 0})}
+                              step="0.01"
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">List Price ($)</label>
+                            <input
+                              type="number"
+                              value={createFormData.listPrice}
+                              onChange={(e) => setCreateFormData({...createFormData, listPrice: parseFloat(e.target.value) || 0})}
+                              step="0.01"
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                            />
+                          </div>
+                        </div>
+                        {createFormData.costBasis > 0 && createFormData.listPrice > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                            <span className="text-gray-600">Margin: </span>
+                            <span className="font-medium text-blue-700">
+                              {(((createFormData.listPrice - createFormData.costBasis) / createFormData.costBasis) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step 3: Inventory Details */}
+                    {createStep === 'details' && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Quantity</label>
+                          <input
+                            type="number"
+                            value={createFormData.quantity}
+                            onChange={(e) => setCreateFormData({...createFormData, quantity: parseInt(e.target.value) || 1})}
+                            min="1"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Channel</label>
+                          <select
+                            value={createFormData.channel}
+                            onChange={(e) => setCreateFormData({...createFormData, channel: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                          >
+                            <option value="web">Web</option>
+                            <option value="store_walkIn">Store Walk-In</option>
+                            <option value="discogs">Discogs</option>
+                            <option value="ebay">eBay</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Status</label>
+                          <select
+                            value={createFormData.status}
+                            onChange={(e) => setCreateFormData({...createFormData, status: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="live">Live</option>
+                            <option value="reserved">Reserved</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Internal Notes</label>
+                          <textarea
+                            value={createFormData.internalNotes}
+                            onChange={(e) => setCreateFormData({...createFormData, internalNotes: e.target.value})}
+                            rows={3}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 4: Review & Create */}
+                    {createStep === 'review' && selectedRelease && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="text-xs text-gray-600 uppercase mb-1">Title</div>
+                            <div className="font-medium text-gray-900">{createFormData.title}</div>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="text-xs text-gray-600 uppercase mb-1">Artist</div>
+                            <div className="font-medium text-gray-900">{createFormData.artist}</div>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="text-xs text-gray-600 uppercase mb-1">Cost</div>
+                            <div className="font-medium text-gray-900">${createFormData.costBasis.toFixed(2)}</div>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="text-xs text-gray-600 uppercase mb-1">Price</div>
+                            <div className="font-medium text-gray-900">${createFormData.listPrice.toFixed(2)}</div>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="text-xs text-gray-600 uppercase mb-1">Qty</div>
+                            <div className="font-medium text-gray-900">{createFormData.quantity}</div>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="text-xs text-gray-600 uppercase mb-1">Channel</div>
+                            <div className="font-medium text-gray-900">{createFormData.channel === 'store_walkIn' ? 'Store Walk-In' : createFormData.channel}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="border-t border-gray-200 p-6 flex gap-3 bg-gray-50">
+                    <button
+                      onClick={() => {
+                        if (createStep === 'release') {
+                          setShowCreateModal(false);
+                        } else if (createStep === 'condition') {
+                          setCreateStep('release');
+                          setSelectedRelease(null);
+                        } else if (createStep === 'details') {
+                          setCreateStep('condition');
+                        } else {
+                          setCreateStep('details');
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 border border-gray-300 hover:border-gray-400 text-gray-900 rounded-lg font-medium transition"
+                    >
+                      {createStep === 'release' ? 'Cancel' : 'Back'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (createStep === 'release' && !selectedRelease) {
+                          alert('Please select a release');
+                          return;
+                        }
+                        if (createStep === 'release') {
+                          setCreateStep('condition');
+                        } else if (createStep === 'condition') {
+                          setCreateStep('details');
+                        } else if (createStep === 'details') {
+                          setCreateStep('review');
+                        } else {
+                          // Create the lot
+                          handleCreateLot();
+                        }
+                      }}
+                      disabled={createLoading}
+                      className="flex-1 px-4 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white rounded-lg font-medium transition"
+                    >
+                      {createLoading
+                        ? 'Creating...'
+                        : createStep === 'review'
+                        ? 'Create Lot'
+                        : 'Next'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bulk Actions Modal */}
+            {showBulkModal && selectedLots.size > 0 && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                  {/* Modal Header */}
+                  <div className="border-b border-gray-200 p-6 flex justify-between items-center sticky top-0 bg-white">
+                    <h2 className="text-2xl font-light text-gray-900">Bulk Update {selectedLots.size} Lot{selectedLots.size !== 1 ? 's' : ''}</h2>
+                    <button
+                      onClick={() => setShowBulkModal(false)}
+                      className="text-gray-400 hover:text-gray-600 text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6 space-y-6">
+                    {/* Summary */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="text-sm font-semibold text-gray-700 uppercase mb-3">Selected Lots</h3>
+                      <div className="text-sm text-gray-600">
+                        {Array.from(selectedLots).slice(0, 5).join(', ')}{selectedLots.size > 5 ? ` +${selectedLots.size - 5} more` : ''}
+                      </div>
+                    </div>
+
+                    {/* Update Options */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Update Type</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <label className="flex items-center gap-2 p-3 border border-gray-300 rounded cursor-pointer hover:bg-gray-50" onClick={() => setBulkUpdateOption('status')}>
+                            <input type="radio" name="updateType" checked={bulkUpdateOption === 'status'} readOnly className="w-4 h-4" />
+                            <span className="text-sm text-gray-700">Status</span>
+                          </label>
+                          <label className="flex items-center gap-2 p-3 border border-gray-300 rounded cursor-pointer hover:bg-gray-50" onClick={() => setBulkUpdateOption('price')}>
+                            <input type="radio" name="updateType" checked={bulkUpdateOption === 'price'} readOnly className="w-4 h-4" />
+                            <span className="text-sm text-gray-700">Price</span>
+                          </label>
+                          <label className="flex items-center gap-2 p-3 border border-gray-300 rounded cursor-pointer hover:bg-gray-50" onClick={() => setBulkUpdateOption('channel')}>
+                            <input type="radio" name="updateType" checked={bulkUpdateOption === 'channel'} readOnly className="w-4 h-4" />
+                            <span className="text-sm text-gray-700">Channel</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Status Option */}
+                      {bulkUpdateOption === 'status' && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Change Status To</label>
+                          <select
+                            value={bulkStatusValue}
+                            onChange={(e) => setBulkStatusValue(e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="live">Live</option>
+                            <option value="reserved">Reserved</option>
+                            <option value="sold">Sold</option>
+                            <option value="returned">Returned</option>
+                            <option value="damaged">Damaged</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Channel Option */}
+                      {bulkUpdateOption === 'channel' && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Change Channel To</label>
+                          <select
+                            value={bulkChannelValue}
+                            onChange={(e) => setBulkChannelValue(e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                          >
+                            <option value="web">Web</option>
+                            <option value="store_walkIn">Store Walk-In</option>
+                            <option value="discogs">Discogs</option>
+                            <option value="ebay">eBay</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Price Options */}
+                      {bulkUpdateOption === 'price' && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Price Update Type</label>
+                            <select
+                              value={bulkPriceType}
+                              onChange={(e) => setBulkPriceType(e.target.value as any)}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                            >
+                              <option value="set">Set to specific value</option>
+                              <option value="increase_amount">Increase by $ amount</option>
+                              <option value="increase_percent">Increase by % percentage</option>
+                              <option value="decrease_amount">Decrease by $ amount</option>
+                              <option value="decrease_percent">Decrease by % percentage</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                              {bulkPriceType === 'set' ? 'New Price' : bulkPriceType.includes('percent') ? 'Percentage' : 'Amount'}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-4 top-3 text-gray-600">
+                                {bulkPriceType === 'set' ? '$' : bulkPriceType.includes('percent') ? '%' : '$'}
+                              </span>
+                              <input
+                                type="number"
+                                value={bulkPriceValue}
+                                onChange={(e) => setBulkPriceValue(parseFloat(e.target.value) || 0)}
+                                step="0.01"
+                                className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="border-t border-gray-200 p-6 flex gap-3 bg-gray-50">
+                    <button
+                      onClick={() => setShowBulkModal(false)}
+                      disabled={bulkLoading}
+                      className="flex-1 px-4 py-3 border border-gray-300 hover:border-gray-400 disabled:opacity-50 text-gray-900 rounded-lg font-medium transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setBulkLoading(true);
+                          const { token } = useAuthStore.getState();
+
+                          const updates: any = {};
+                          if (bulkUpdateOption === 'status') {
+                            updates.status = bulkStatusValue;
+                          } else if (bulkUpdateOption === 'channel') {
+                            updates.channel = bulkChannelValue;
+                          } else if (bulkUpdateOption === 'price') {
+                            updates.priceUpdate = {
+                              type: bulkPriceType,
+                              value: bulkPriceValue,
+                            };
+                          }
+
+                          const res = await fetch(`/api/admin/inventory/bulk-update`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            body: JSON.stringify({
+                              lotIds: Array.from(selectedLots),
+                              updates,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setShowBulkModal(false);
+                            setSelectedLots(new Set());
+                            // Refresh inventory list
+                            window.location.reload();
+                          } else {
+                            alert('Failed to update lots: ' + (data.error?.message || 'Unknown error'));
+                          }
+                        } catch (err) {
+                          console.error('Error updating lots:', err);
+                          alert('Failed to update lots');
+                        } finally {
+                          setBulkLoading(false);
+                        }
+                      }}
+                      disabled={bulkLoading}
+                      className="flex-1 px-4 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
+                    >
+                      {bulkLoading ? 'Updating...' : 'Apply Updates'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Edit Lot Modal */}
+            {showEditModal && editingLot && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                  {/* Modal Header */}
+                  <div className="border-b border-gray-200 p-6 flex justify-between items-center sticky top-0 bg-white">
+                    <h2 className="text-2xl font-light text-gray-900">Edit Lot {editingLot.lotNumber}</h2>
+                    <button
+                      onClick={() => setShowEditModal(false)}
+                      className="text-gray-400 hover:text-gray-600 text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6 space-y-6">
+                    {/* Release Info (Read-only) */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="text-sm font-semibold text-gray-700 uppercase mb-3">Release Info</h3>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="text-gray-600">Title:</span> <span className="text-gray-900 font-medium">{editingLot.release?.title || 'Unknown'}</span></div>
+                        <div><span className="text-gray-600">Artist:</span> <span className="text-gray-900 font-medium">{editingLot.release?.artist || 'Unknown'}</span></div>
+                        <div><span className="text-gray-600">Condition:</span> <span className="text-gray-900 font-medium">{editingLot.conditionMedia} / {editingLot.conditionSleeve}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Editable Fields */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">List Price</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-3 text-gray-600">$</span>
+                          <input
+                            type="number"
+                            value={editingLot.listPrice || 0}
+                            onChange={(e) => setEditingLot({...editingLot, listPrice: parseFloat(e.target.value) || 0})}
+                            step="0.01"
+                            className="w-full pl-8 pr-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Status</label>
+                        <select
+                          value={editingLot.status}
+                          onChange={(e) => setEditingLot({...editingLot, status: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="live">Live</option>
+                          <option value="reserved">Reserved</option>
+                          <option value="sold">Sold</option>
+                          <option value="returned">Returned</option>
+                          <option value="damaged">Damaged</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Channel</label>
+                        <select
+                          value={editingLot.channel}
+                          onChange={(e) => setEditingLot({...editingLot, channel: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 transition-all"
+                        >
+                          <option value="web">Web</option>
+                          <option value="store_walkIn">Store Walk-In</option>
+                          <option value="discogs">Discogs</option>
+                          <option value="ebay">eBay</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Internal Notes</label>
+                        <textarea
+                          value={editingLot.internalNotes || ''}
+                          onChange={(e) => setEditingLot({...editingLot, internalNotes: e.target.value})}
+                          rows={3}
+                          placeholder="Add any internal notes about this lot..."
+                          className="w-full px-4 py-3 border border-gray-300 hover:border-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-gray-900 placeholder-gray-500 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="border-t border-gray-200 p-6 flex gap-3 bg-gray-50">
+                    <button
+                      onClick={() => setShowEditModal(false)}
+                      className="flex-1 px-4 py-3 border border-gray-300 hover:border-gray-400 text-gray-900 rounded-lg font-medium transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { token } = useAuthStore.getState();
+                          const res = await fetch(`/api/admin/inventory`, {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            body: JSON.stringify({
+                              id: editingLot.id,
+                              listPrice: editingLot.listPrice,
+                              status: editingLot.status,
+                              channel: editingLot.channel,
+                              internalNotes: editingLot.internalNotes,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setShowEditModal(false);
+                            // Refresh inventory list
+                            window.location.reload();
+                          } else {
+                            alert('Failed to update lot: ' + (data.error?.message || 'Unknown error'));
+                          }
+                        } catch (err) {
+                          console.error('Error updating lot:', err);
+                          alert('Failed to update lot');
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium transition"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

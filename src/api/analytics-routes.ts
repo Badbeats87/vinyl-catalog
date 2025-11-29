@@ -5,7 +5,7 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Get admin dashboard stats
-router.get('/dashboard', async (req: Request, res: Response) => {
+router.get('/dashboard', async (_req: Request, res: Response) => {
   try {
     // Total inventory value (live listings)
     const liveInventory = await prisma.inventoryLot.findMany({
@@ -100,7 +100,7 @@ router.get('/sales-history', async (req: Request, res: Response) => {
 });
 
 // Get inventory statistics
-router.get('/inventory-stats', async (req: Request, res: Response) => {
+router.get('/inventory-stats', async (_req: Request, res: Response) => {
   try {
     const lots = await prisma.inventoryLot.findMany({
       select: {

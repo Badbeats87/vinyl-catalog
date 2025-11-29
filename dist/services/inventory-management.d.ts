@@ -61,4 +61,18 @@ export declare function getInventoryMetrics(): Promise<{
     totalInventoryValue: number;
     totalCostBasis: number;
 }>;
+/**
+ * Bulk update inventory lots
+ */
+export declare function bulkUpdateInventoryLots(lotIds: string[], updates: {
+    status?: string;
+    channel?: string;
+    priceUpdate?: {
+        type: 'set' | 'increase_amount' | 'increase_percent' | 'decrease_amount' | 'decrease_percent';
+        value: number;
+    };
+}): Promise<{
+    updatedCount: number;
+    errors: string[];
+}>;
 //# sourceMappingURL=inventory-management.d.ts.map
