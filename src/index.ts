@@ -943,6 +943,162 @@ app.delete('/api/admin/reviews/:reviewId', authenticate, requireAdmin, async (re
 });
 
 // ============================================================================
+// ADMIN USER MANAGEMENT
+// ============================================================================
+
+app.get('/api/admin/users', authenticate, requireAdmin, async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const adminUsersService = require('../services/admin-users.js');
+    const users = await adminUsersService.getAllAdminUsers();
+
+    res.status(200).json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/users/:userId', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { userId } = req.params;
+
+    const adminUsersService = require('../services/admin-users.js');
+    const user = await adminUsersService.getAdminUser(userId);
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Admin user not found') {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'Admin user not found',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.post('/api/admin/users', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { email, name, passwordHash, roleId } = req.body;
+
+    if (!email || !name || !passwordHash) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing required fields: email, name, passwordHash',
+        },
+      });
+      return;
+    }
+
+    const adminUsersService = require('../services/admin-users.js');
+    const user = await adminUsersService.createAdminUser(email, name, passwordHash, roleId);
+
+    res.status(201).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Email already in use') {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'EMAIL_ALREADY_IN_USE',
+          message: 'Email already in use',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.patch('/api/admin/users/:userId', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const { name, roleId, isActive } = req.body;
+
+    const adminUsersService = require('../services/admin-users.js');
+    const user = await adminUsersService.updateAdminUser(userId, {
+      name,
+      roleId,
+      isActive,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/admin/users/:userId', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { userId } = req.params;
+
+    const adminUsersService = require('../services/admin-users.js');
+    await adminUsersService.deleteAdminUser(userId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Admin user deleted',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/roles', authenticate, requireAdmin, async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const adminUsersService = require('../services/admin-users.js');
+    const roles = await adminUsersService.getAllAdminRoles();
+
+    res.status(200).json({
+      success: true,
+      data: roles,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/activity-log', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
+    const adminUsersService = require('../services/admin-users.js');
+    const { logs, total } = await adminUsersService.getAdminActivityLog(limit, offset);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        logs,
+        pagination: {
+          limit,
+          offset,
+          total,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 
