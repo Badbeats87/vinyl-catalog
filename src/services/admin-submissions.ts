@@ -241,7 +241,52 @@ export async function acceptSubmissionItem(input: AcceptSubmissionItemInput): Pr
 
   const finalConditionMedia = input.finalConditionMedia || item.sellerConditionMedia;
   const finalConditionSleeve = input.finalConditionSleeve || item.sellerConditionSleeve;
-  const finalOfferPrice = input.finalOfferPrice || item.autoOfferPrice;
+
+  // Check if conditions changed from what was offered
+  const conditionsChanged =
+    finalConditionMedia !== item.sellerConditionMedia ||
+    finalConditionSleeve !== item.sellerConditionSleeve;
+
+  let finalOfferPrice = input.finalOfferPrice || item.autoOfferPrice;
+  let priceRecalculated = false;
+  let recalculationDetails = '';
+
+  // If conditions changed and no explicit price was provided, recalculate
+  if (conditionsChanged && !input.finalOfferPrice) {
+    try {
+      const { calculatePricing } = await import('./pricing');
+      const { getPolicyForRelease } = await import('./pricing-policies');
+
+      console.log(`[Pricing] Conditions changed during acceptance - recalculating price`);
+      console.log(`  Original: ${item.sellerConditionMedia}/${item.sellerConditionSleeve}`);
+      console.log(`  Updated: ${finalConditionMedia}/${finalConditionSleeve}`);
+
+      const policy = await getPolicyForRelease(item.releaseId);
+
+      if (policy) {
+        const pricingResult = await calculatePricing({
+          releaseId: item.releaseId,
+          policy,
+          conditionMedia: finalConditionMedia,
+          conditionSleeve: finalConditionSleeve,
+          calculationType: 'buy_offer',
+        });
+
+        const newPrice = pricingResult.offerPrice;
+        if (newPrice !== finalOfferPrice) {
+          priceRecalculated = true;
+          recalculationDetails = `Price auto-recalculated from $${finalOfferPrice} to $${newPrice} based on condition changes`;
+          finalOfferPrice = newPrice;
+          console.log(`[Pricing] Auto-recalculated offer price: $${finalOfferPrice}`);
+        }
+      } else {
+        console.warn(`[Pricing] No policy found for release ${item.releaseId}, using original price`);
+      }
+    } catch (err) {
+      console.error(`[Pricing] Error recalculating price on condition change:`, err);
+      // Fall back to manual price if provided, otherwise use auto offer
+    }
+  }
 
   // Update the item
   await prisma.submissionItem.update({
@@ -256,12 +301,16 @@ export async function acceptSubmissionItem(input: AcceptSubmissionItemInput): Pr
   });
 
   // Log the action
+  const adminNotes = input.adminNotes
+    ? `${input.adminNotes}${priceRecalculated ? ` | ${recalculationDetails}` : ''}`
+    : priceRecalculated ? recalculationDetails : undefined;
+
   await prisma.submissionHistory.create({
     data: {
       submissionId: item.submissionId,
       submissionItemId: input.submissionItemId,
       actionType: 'accepted',
-      adminNotes: input.adminNotes,
+      adminNotes,
       finalConditionMedia,
       finalConditionSleeve,
       adjustedPrice: input.finalOfferPrice,
