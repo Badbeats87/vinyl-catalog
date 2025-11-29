@@ -141,7 +141,12 @@ export async function browseInventory(
     },
   });
 
-  const channelList = publicChannels.map((c) => c.channel);
+  // Build list of allowed channels
+  // If no channels configured, allow 'web' by default
+  let channelList = publicChannels.map((c) => c.channel);
+  if (channelList.length === 0) {
+    channelList = ['web']; // Default to web channel if no config exists
+  }
 
   // Build query filters
   const whereClause: any = {
@@ -313,7 +318,13 @@ export async function searchInventory(
   const publicChannels = await prisma.channelConfig.findMany({
     where: { isPublic: true, isSellable: true },
   });
-  const channelList = publicChannels.map((c) => c.channel);
+
+  // Build list of allowed channels
+  // If no channels configured, allow 'web' by default
+  let channelList = publicChannels.map((c) => c.channel);
+  if (channelList.length === 0) {
+    channelList = ['web']; // Default to web channel if no config exists
+  }
 
   // Search for matching releases by title or artist (case-insensitive)
   const searchLower = input.query.toLowerCase();
