@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
+import { AppError, createSuccessResponse } from '../services/error-handler.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -12,7 +13,7 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
   try {
     const { query, page = 1, currency = 'USD', deduplicateByMaster = true } = req.body;
     if (!query) {
-      res.json({ success: false, error: 'Search query required' });
+      res.json(AppError.validation('query', 'Search query is required'));
       return;
     }
 
@@ -189,10 +190,7 @@ router.post('/discogs', async (req: Request, res: Response): Promise<void> => {
     });
   } catch (err: any) {
     console.error('Discogs API error:', err.message);
-    res.status(500).json({
-      success: false,
-      error: `Discogs API error: ${err.message}`
-    });
+    res.status(500).json(AppError.externalApiError('Discogs'));
   }
 });
 
@@ -201,7 +199,7 @@ router.post('/ebay', async (req: Request, res: Response): Promise<void> => {
   try {
     const { query } = req.body;
     if (!query) {
-      res.json({ success: false, error: 'Search query required' });
+      res.json(AppError.validation('query', 'Search query is required'));
       return;
     }
 
@@ -402,7 +400,7 @@ router.post('/ebay', async (req: Request, res: Response): Promise<void> => {
       count: mockResults.length,
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: String(err) });
+    res.status(500).json(AppError.externalApiError('eBay'));
   }
 });
 
@@ -412,7 +410,7 @@ router.post('/import-release', async (req: Request, res: Response): Promise<void
     const { title, artist, year, label, imageUrl } = req.body;
 
     if (!title || !artist) {
-      res.json({ success: false, error: 'Title and artist required' });
+      res.json(AppError.validation('title/artist', 'Title and artist are required'));
       return;
     }
 
@@ -439,13 +437,14 @@ router.post('/import-release', async (req: Request, res: Response): Promise<void
       });
     }
 
-    res.json({
-      success: true,
-      message: existing ? 'Release already exists' : 'Release imported',
-      release,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: String(err) });
+    res.json(
+      createSuccessResponse({
+        message: existing ? 'Release already exists' : 'Release imported',
+        release,
+      })
+    );
+  } catch (err: any) {
+    res.status(500).json(AppError.databaseError('Release import failed'));
   }
 });
 
