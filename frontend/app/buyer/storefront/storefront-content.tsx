@@ -8,6 +8,7 @@ import { useCurrency } from '@/lib/currency-context';
 import { useToast } from '@/components/Toast';
 import Pagination from '@/components/Pagination';
 import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
+import WishlistButton from '@/components/WishlistButton';
 
 interface Product {
   id: string;
@@ -191,6 +192,12 @@ export default function StorefrontContent() {
           <h1 className="text-2xl font-bold text-green-500">🎵 Vinyl Marketplace</h1>
           <div className="flex gap-6 items-center">
             <Link
+              href="/buyer/wishlist"
+              className="flex items-center gap-2 hover:text-red-400 transition"
+            >
+              ❤️ Wishlist
+            </Link>
+            <Link
               href="/buyer/cart"
               className="flex items-center gap-2 hover:text-green-400 transition"
             >
@@ -252,8 +259,15 @@ export default function StorefrontContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
               <div key={product.id} className="bg-gray-800 rounded-lg overflow-hidden hover:shadow-lg transition">
-                <div className="bg-gray-700 h-40 flex items-center justify-center">
+                <div className="relative bg-gray-700 h-40 flex items-center justify-center">
                   <div className="text-5xl">💿</div>
+                  <div className="absolute top-2 right-2">
+                    <WishlistButton
+                      releaseId={product.id}
+                      size="sm"
+                      variant="icon"
+                    />
+                  </div>
                 </div>
                 <div className="p-4">
                   <h3 className="text-lg font-bold mb-1">{product.title}</h3>

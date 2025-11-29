@@ -567,6 +567,53 @@ app.post('/api/buyer/orders/:orderId/paypal-capture', authenticate, requireBuyer
   }
 });
 
+// Stripe Payment Intent - Create payment intent for Stripe checkout
+app.post('/api/buyer/payment-intent', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { amount, currency, orderId, email, name } = req.body;
+
+    if (!amount || !currency || !orderId || !email || !name) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing required fields: amount, currency, orderId, email, name',
+        },
+      });
+      return;
+    }
+
+    const stripePayment = require('../services/stripe-payment.js');
+    const result = await stripePayment.createPaymentIntent({
+      amount,
+      currency,
+      orderId,
+      email,
+      customerId: (req as any).userId || '',
+      description: `Order ${orderId}`,
+    });
+
+    if (!result.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'PAYMENT_ERROR',
+          message: result.error || 'Failed to create payment intent',
+        },
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      clientSecret: result.clientSecret,
+      paymentIntentId: result.paymentIntentId,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/buyer/orders', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -577,6 +624,319 @@ app.get('/api/buyer/orders', authenticate, requireBuyer, async (req: Request, re
       offset
     );
     res.status(200).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================================
+// BUYER WISHLIST
+// ============================================================================
+
+app.get('/api/buyer/wishlist', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+
+    const wishlistService = require('../services/wishlist.js');
+    const wishlist = await wishlistService.getWishlistWithItems(buyerId);
+
+    res.status(200).json({
+      success: true,
+      data: wishlist,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/buyer/wishlist/items', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { releaseId } = req.body;
+
+    if (!releaseId) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'releaseId is required',
+        },
+      });
+      return;
+    }
+
+    const wishlistService = require('../services/wishlist.js');
+    const item = await wishlistService.addToWishlist(buyerId, releaseId);
+
+    res.status(201).json({
+      success: true,
+      data: item,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Release not found') {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'RELEASE_NOT_FOUND',
+          message: 'Release not found',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.delete('/api/buyer/wishlist/items/:wishlistItemId', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { wishlistItemId } = req.params;
+
+    const wishlistService = require('../services/wishlist.js');
+    await wishlistService.removeFromWishlist(buyerId, wishlistItemId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Item removed from wishlist',
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Wishlist item not found or unauthorized') {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'WISHLIST_ITEM_NOT_FOUND',
+          message: 'Wishlist item not found or unauthorized',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.get('/api/buyer/wishlist/check/:releaseId', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { releaseId } = req.params;
+
+    const wishlistService = require('../services/wishlist.js');
+    const inWishlist = await wishlistService.isInWishlist(buyerId, releaseId);
+
+    res.status(200).json({
+      success: true,
+      data: { inWishlist },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/buyer/wishlist', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+
+    const wishlistService = require('../services/wishlist.js');
+    const count = await wishlistService.clearWishlist(buyerId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Wishlist cleared',
+      data: { itemsRemoved: count },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================================
+// BUYER REVIEWS
+// ============================================================================
+
+app.post('/api/buyer/reviews', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { orderId, releaseId, rating, title, content, conditionRating, photos } = req.body;
+
+    if (!orderId || !releaseId || !rating || !title || !content || !conditionRating) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing required fields: orderId, releaseId, rating, title, content, conditionRating',
+        },
+      });
+      return;
+    }
+
+    const reviewsService = require('../services/reviews.js');
+    const review = await reviewsService.createReview(buyerId, orderId, releaseId, {
+      rating,
+      title,
+      content,
+      conditionRating,
+      photos,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: review,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Order not found')) {
+        res.status(404).json({
+          success: false,
+          error: {
+            code: 'ORDER_NOT_FOUND',
+            message: 'Order not found or unauthorized',
+          },
+        });
+        return;
+      }
+      if (error.message.includes('already exists')) {
+        res.status(409).json({
+          success: false,
+          error: {
+            code: 'REVIEW_EXISTS',
+            message: 'Review already exists for this order',
+          },
+        });
+        return;
+      }
+    }
+    next(error);
+  }
+});
+
+app.get('/api/reviews/release/:releaseId', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { releaseId } = req.params;
+
+    const reviewsService = require('../services/reviews.js');
+    const stats = await reviewsService.getReviewsForRelease(releaseId, false);
+
+    res.status(200).json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Release not found') {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'RELEASE_NOT_FOUND',
+          message: 'Release not found',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.get('/api/buyer/reviews', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+
+    const reviewsService = require('../services/reviews.js');
+    const reviews = await reviewsService.getReviewsByBuyer(buyerId);
+
+    res.status(200).json({
+      success: true,
+      data: reviews,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================================
+// ADMIN REVIEWS
+// ============================================================================
+
+app.get('/api/admin/reviews/pending', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+
+    const reviewsService = require('../services/reviews.js');
+    const reviews = await reviewsService.getPendingReviews(limit);
+
+    res.status(200).json({
+      success: true,
+      data: reviews,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/reviews/:reviewId/status', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { reviewId } = req.params;
+    const { status, rejectionReason } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Status must be "approved" or "rejected"',
+        },
+      });
+      return;
+    }
+
+    const reviewsService = require('../services/reviews.js');
+    const review = await reviewsService.updateReviewStatus(reviewId, status, rejectionReason);
+
+    res.status(200).json({
+      success: true,
+      data: review,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/reviews/:reviewId/response', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { reviewId } = req.params;
+    const { response } = req.body;
+
+    if (!response) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Response is required',
+        },
+      });
+      return;
+    }
+
+    const reviewsService = require('../services/reviews.js');
+    const review = await reviewsService.addAdminResponse(reviewId, response);
+
+    res.status(200).json({
+      success: true,
+      data: review,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/admin/reviews/:reviewId', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { reviewId } = req.params;
+
+    const reviewsService = require('../services/reviews.js');
+    await reviewsService.deleteReview(reviewId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Review deleted',
+    });
   } catch (error) {
     next(error);
   }
