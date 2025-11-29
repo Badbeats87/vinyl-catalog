@@ -28,6 +28,7 @@ export interface CreateInventoryLotInput {
   quantity?: number;
   channel?: string;
   internalNotes?: string;
+  status?: string;
 }
 
 /**
@@ -82,7 +83,8 @@ export async function createInventoryLot(input: CreateInventoryLotInput): Promis
       availableQuantity: input.quantity || 1,
       channel: input.channel || 'web',
       internalNotes: input.internalNotes,
-      status: 'draft',
+      status: input.status || 'draft',
+      listedAt: input.status === 'live' ? new Date() : null,
     },
   });
 
@@ -109,13 +111,16 @@ export async function createInventoryLotFromSubmissionItem(item: SubmissionItem)
   }
 
   // Calculate selling price using pricing strategy
-  let listPrice = offerPrice; // Default fallback
+  let listPrice = offerPrice; // Default fallback to cost basis
   try {
     const { calculatePricing } = await import('./pricing');
     const { getPolicyForRelease } = await import('./pricing-policies');
 
+    console.log(`[Pricing] Calculating price for release: ${item.releaseId}`);
     const policy = await getPolicyForRelease(item.releaseId);
+
     if (policy) {
+      console.log(`[Pricing] Found policy: ${policy.name} (ID: ${policy.id})`);
       const pricingResult = await calculatePricing({
         releaseId: item.releaseId,
         policy,
@@ -123,11 +128,53 @@ export async function createInventoryLotFromSubmissionItem(item: SubmissionItem)
         conditionSleeve,
         calculationType: 'sell_price',
       });
-      listPrice = pricingResult.listPrice || offerPrice;
+
+      // Use calculated price if market data exists, otherwise use fallback with condition adjustments
+      if (pricingResult.breakdown.baseMarketPrice && pricingResult.breakdown.baseMarketPrice > 0) {
+        listPrice = pricingResult.listPrice;
+        console.log(`[Pricing] Calculated list price: $${listPrice} (from market data)`);
+      } else {
+        // No market data - apply condition adjustments to fallback price
+        console.log(`[Pricing] No market data for ${item.releaseId}, applying condition adjustments to cost basis`);
+
+        // Get condition tier adjustments
+        const { prisma: db } = await import('../db/client');
+        let mediaAdjustment = 1.0;
+        let sleeveAdjustment = 1.0;
+
+        if (policy.applyConditionAdjustment) {
+          const mediaConditionTier = await db.conditionTier.findUnique({
+            where: { name: conditionMedia },
+          });
+          const sleeveConditionTier = await db.conditionTier.findUnique({
+            where: { name: conditionSleeve },
+          });
+
+          if (mediaConditionTier) {
+            mediaAdjustment = mediaConditionTier.mediaAdjustment;
+            console.log(`[Pricing] Media condition (${conditionMedia}) adjustment: ${mediaAdjustment}`);
+          }
+          if (sleeveConditionTier) {
+            sleeveAdjustment = sleeveConditionTier.sleeveAdjustment;
+            console.log(`[Pricing] Sleeve condition (${conditionSleeve}) adjustment: ${sleeveAdjustment}`);
+          }
+        }
+
+        // Calculate condition-weighted adjustment (same as in pricing engine)
+        const conditionAdjustment = mediaAdjustment * policy.mediaWeight + sleeveAdjustment * policy.sleeveWeight;
+        console.log(`[Pricing] Combined condition adjustment: ${conditionAdjustment}`);
+
+        // Apply condition adjustment to cost basis with markup
+        const baseMarkup = 1.2; // 20% base markup
+        listPrice = Math.round(offerPrice * baseMarkup * conditionAdjustment * 100) / 100;
+        console.log(`[Pricing] Fallback price with condition adjustments: $${listPrice} (cost: $${offerPrice}, adjustment: ${conditionAdjustment})`);
+      }
+    } else {
+      console.warn(`[Pricing] No policy found for release ${item.releaseId}, using cost basis`);
     }
   } catch (err) {
     // If pricing calculation fails, fall back to cost basis
-    console.warn(`Failed to calculate selling price for ${item.releaseId}:`, err);
+    console.error(`[Pricing] Error calculating selling price for ${item.releaseId}:`, err);
     listPrice = offerPrice;
   }
 
@@ -139,6 +186,7 @@ export async function createInventoryLotFromSubmissionItem(item: SubmissionItem)
     listPrice: listPrice, // Applied pricing strategy
     quantity: item.quantity,
     channel: 'web',
+    status: 'live',
     internalNotes: `Created from submission ${item.submissionId}. Original seller condition: ${item.sellerConditionMedia}/${item.sellerConditionSleeve}`,
   });
 }
@@ -273,6 +321,8 @@ export async function updateInventoryLot(
     status?: string;
     internalNotes?: string;
     channel?: string;
+    conditionMedia?: string;
+    conditionSleeve?: string;
   }
 ): Promise<void> {
   const lot = await prisma.inventoryLot.findUnique({
@@ -311,6 +361,20 @@ export async function updateInventoryLot(
 
   if (updates.channel !== undefined) {
     data.channel = updates.channel;
+  }
+
+  if (updates.conditionMedia !== undefined) {
+    if (!updates.conditionMedia || updates.conditionMedia.trim() === '') {
+      throw new ValidationError('Condition media cannot be empty');
+    }
+    data.conditionMedia = updates.conditionMedia;
+  }
+
+  if (updates.conditionSleeve !== undefined) {
+    if (!updates.conditionSleeve || updates.conditionSleeve.trim() === '') {
+      throw new ValidationError('Condition sleeve cannot be empty');
+    }
+    data.conditionSleeve = updates.conditionSleeve;
   }
 
   data.updatedAt = new Date();
