@@ -2,4 +2,5 @@
 builder = "nixpacks"
 
 [deploy]
+buildCommand = "npm run build && npm run db:generate"
 startCommand = "npm run start:prod"
