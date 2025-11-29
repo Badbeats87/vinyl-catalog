@@ -415,6 +415,8 @@ model BuyerOrder {
 
   // Relations
   items           OrderItem[]
+  payments        Payment[]
+  refunds         Refund[]
 
   @@index([buyerId])
   @@index([status])
@@ -495,5 +497,57 @@ model SalesHistory {
   @@index([soldAt])
   @@index([channel])
   @@index([profitMargin])
+}
+
+// Stripe payment record
+model Payment {
+  id                      String   @id @default(cuid())
+  orderId                 String
+  order                   BuyerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Stripe integration
+  stripePaymentIntentId   String   @unique
+  stripeCustomerId        String
+
+  // Payment details
+  amount                  Int      // Amount in cents
+  currency                String   @db.VarChar(3) // "USD", "EUR", etc.
+  status                  String   @db.VarChar(50) // "pending", "completed", "failed"
+
+  // Timestamps
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relations
+  refunds                 Refund[]
+
+  @@index([orderId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Refund record
+model Refund {
+  id          String   @id @default(cuid())
+  paymentId   String
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  orderId     String
+  order       BuyerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Refund details
+  amount      Int      // Amount in cents
+  reason      String   @db.VarChar(255)
+  status      String   @db.VarChar(50) // "pending", "completed", "failed"
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
 }
 
