@@ -1,2 +1,1 @@
-release: npm run db:migrate:prod
-web: npm run start:prod
+web: npm run db:migrate:prod && npm run start:prod
