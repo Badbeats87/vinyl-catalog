@@ -777,14 +777,22 @@ export default function AdminDashboard() {
                                       if (res.ok && responseData.success) {
                                         handleApprove(submission.id);
                                         // Refetch inventory to show newly created lots
+                                        console.log('Refetching inventory...');
                                         const inventoryRes = await fetch(`/api/admin/inventory?limit=50&offset=0`, {
                                           headers: {
                                             ...(token ? { Authorization: `Bearer ${token}` } : {}),
                                           },
                                         });
+                                        console.log('Inventory fetch status:', inventoryRes.status);
                                         const inventoryData = await inventoryRes.json();
+                                        console.log('Inventory data:', inventoryData);
                                         if (inventoryData.success) {
+                                          const lotsCount = inventoryData.data?.lots?.length || 0;
+                                          console.log(`Setting ${lotsCount} lots to inventory state`);
                                           setInventory(inventoryData.data?.lots || []);
+                                          setCurrentInventoryPage(1); // Reset to page 1
+                                        } else {
+                                          console.error('Inventory fetch failed:', inventoryData.error);
                                         }
                                         // Refetch metrics to reflect new inventory
                                         const metricsRes = await fetch('/api/admin/inventory/metrics', {
@@ -798,7 +806,7 @@ export default function AdminDashboard() {
                                         }
                                         const lotCount = responseData.data?.createdLots?.length || 0;
                                         const errors = responseData.data?.errors;
-                                        const msg = `Submission accepted! Created ${lotCount} inventory lot(s).${errors ? '\n\nErrors:\n' + errors.join('\n') : ''}`;
+                                        const msg = `Submission accepted! Created ${lotCount} inventory lot(s).${errors ? '\n\nErrors:\n' + errors.join('\n') : ''}\n\nCheck browser console for details. Inventory tab should now show the new lots.`;
                                         alert(msg);
                                       } else {
                                         const errors = responseData.data?.errors || [responseData.error?.message || 'Unknown error'];
