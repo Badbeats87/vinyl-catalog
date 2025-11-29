@@ -771,20 +771,24 @@ export async function acceptSubmissionAndCreateInventory(submissionId: string): 
 
     // Create inventory for each item
     const createdLots = [];
+    const errors = [];
     for (const item of submission.items) {
       try {
         const lotId = await createInventoryLotFromSubmissionItem(item);
         createdLots.push(lotId);
-      } catch (err) {
-        console.error('Failed to create inventory for item:', err);
+      } catch (err: any) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to create inventory for item ${item.id}:`, errorMsg);
+        errors.push(`Item ${item.id}: ${errorMsg}`);
       }
     }
 
     return {
-      success: true,
+      success: createdLots.length > 0,
       data: {
         createdLots,
-        message: `Submission accepted and ${createdLots.length} lot(s) created`,
+        message: `Submission accepted. Created ${createdLots.length} lot(s).`,
+        errors: errors.length > 0 ? errors : undefined,
       },
     };
   } catch (error: any) {

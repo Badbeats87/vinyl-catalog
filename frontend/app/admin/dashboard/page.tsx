@@ -773,8 +773,8 @@ export default function AdminDashboard() {
                                         },
                                         body: JSON.stringify({ submissionId: submission.id }),
                                       });
-                                      if (res.ok) {
-                                        const data = await res.json();
+                                      const responseData = await res.json();
+                                      if (res.ok && responseData.success) {
                                         handleApprove(submission.id);
                                         // Refetch inventory to show newly created lots
                                         const inventoryRes = await fetch(`/api/admin/inventory?limit=50&offset=0`, {
@@ -796,10 +796,13 @@ export default function AdminDashboard() {
                                         if (metricsData.success) {
                                           setInventoryMetrics(metricsData.data);
                                         }
-                                        const lotCount = data.data?.createdLots?.length || 0;
-                                        alert(`Submission accepted! Created ${lotCount} inventory lot(s). Check the Inventory tab to review.`);
+                                        const lotCount = responseData.data?.createdLots?.length || 0;
+                                        const errors = responseData.data?.errors;
+                                        const msg = `Submission accepted! Created ${lotCount} inventory lot(s).${errors ? '\n\nErrors:\n' + errors.join('\n') : ''}`;
+                                        alert(msg);
                                       } else {
-                                        alert('Failed to accept submission');
+                                        const errors = responseData.data?.errors || [responseData.error?.message || 'Unknown error'];
+                                        alert(`Failed to accept submission:\n${errors.join('\n')}`);
                                       }
                                     } catch (err) {
                                       console.error('Error accepting submission:', err);
