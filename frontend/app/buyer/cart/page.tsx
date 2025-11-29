@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,8 +7,6 @@ import Link from 'next/link';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/lib/currency-context';
-
-export const dynamic = 'force-dynamic';
 
 export default function Cart() {
   const { user, logout } = useAuthStore();
