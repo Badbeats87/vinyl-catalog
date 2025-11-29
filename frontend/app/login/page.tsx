@@ -7,13 +7,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import { useApiError } from '@/lib/use-api-error';
 
 export default function Login() {
   const router = useRouter();
   const { setUser, setToken, user } = useAuthStore();
+  const { error, setError, clearError, handleApiError } = useApiError();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -73,7 +75,7 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    clearError();
 
     // Validate before submitting
     const emailError = validateEmail(email);
@@ -121,15 +123,8 @@ export default function Login() {
       } else {
         router.push('/admin/dashboard');
       }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      console.error('Error response:', err.response?.data);
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.error?.message ||
-        err.message ||
-        'Login failed. Check console for details.';
-      setError(errorMessage);
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setLoading(false);
     }
@@ -185,9 +180,7 @@ export default function Login() {
 
           {/* API Error Message */}
           {error && (
-            <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-2 rounded">
-              {error}
-            </div>
+            <ErrorDisplay error={error} onDismiss={clearError} severity="error" />
           )}
 
           {/* Submit Button */}
