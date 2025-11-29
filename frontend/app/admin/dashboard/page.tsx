@@ -760,9 +760,7 @@ export default function AdminDashboard() {
       // Search for or create the release first
       let releaseId = '';
       if (selectedRelease?.id === 'manual') {
-        // Create a release manually
-        const prisma = new (await import('@prisma/client')).PrismaClient();
-        // For now, we'll just use the title as ID - in production, create via API
+        // Create a release manually using title as ID
         releaseId = createFormData.title.toLowerCase().replace(/\s+/g, '-');
       } else if (selectedRelease?.discogsId) {
         // Use the search result's Discogs ID to find or create release
