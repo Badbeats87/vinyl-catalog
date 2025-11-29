@@ -20,6 +20,7 @@ export declare function createInventoryLot(input: CreateInventoryLotInput): Prom
 /**
  * Create inventory lot from a submission item
  * Uses finalized values if available, otherwise falls back to seller-provided values
+ * Applies pricing strategy to calculate selling price
  */
 export declare function createInventoryLotFromSubmissionItem(item: SubmissionItem): Promise<string>;
 /**

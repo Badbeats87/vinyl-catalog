@@ -68,6 +68,7 @@ export async function createInventoryLot(input) {
 /**
  * Create inventory lot from a submission item
  * Uses finalized values if available, otherwise falls back to seller-provided values
+ * Applies pricing strategy to calculate selling price
  */
 export async function createInventoryLotFromSubmissionItem(item) {
     if (!item.releaseId) {
@@ -80,12 +81,34 @@ export async function createInventoryLotFromSubmissionItem(item) {
     if (!conditionMedia || !conditionSleeve || !offerPrice) {
         throw new ValidationError('Submission item must have condition and price information');
     }
+    // Calculate selling price using pricing strategy
+    let listPrice = offerPrice; // Default fallback
+    try {
+        const { calculatePricing } = await import('./pricing');
+        const { getPolicyForRelease } = await import('./pricing-policies');
+        const policy = await getPolicyForRelease(item.releaseId);
+        if (policy) {
+            const pricingResult = await calculatePricing({
+                releaseId: item.releaseId,
+                policy,
+                conditionMedia,
+                conditionSleeve,
+                calculationType: 'sell_price',
+            });
+            listPrice = pricingResult.listPrice || offerPrice;
+        }
+    }
+    catch (err) {
+        // If pricing calculation fails, fall back to cost basis
+        console.warn(`Failed to calculate selling price for ${item.releaseId}:`, err);
+        listPrice = offerPrice;
+    }
     return createInventoryLot({
         releaseId: item.releaseId,
         conditionMedia,
         conditionSleeve,
         costBasis: offerPrice,
-        listPrice: offerPrice, // Initial list price equals cost (pricing strategy can adjust later)
+        listPrice: listPrice, // Applied pricing strategy
         quantity: item.quantity,
         channel: 'web',
         internalNotes: `Created from submission ${item.submissionId}. Original seller condition: ${item.sellerConditionMedia}/${item.sellerConditionSleeve}`,
