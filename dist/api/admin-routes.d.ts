@@ -100,7 +100,8 @@ export declare function listInventory(status?: string, channel?: string, release
  */
 export declare function getInventoryDetail(identifier: string, byLotNumber?: boolean): Promise<ApiResponse<any>>;
 export interface UpdateInventoryInput {
-    lotId: string;
+    lotId?: string;
+    id?: string;
     listPrice?: number;
     status?: string;
     internalNotes?: string;

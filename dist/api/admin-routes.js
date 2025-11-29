@@ -325,7 +325,17 @@ export async function getInventoryDetail(identifier, byLotNumber = false) {
  */
 export async function updateInventory(input) {
     try {
-        await updateInventoryLot(input.lotId, {
+        const lotId = input.lotId || input.id;
+        if (!lotId) {
+            return {
+                success: false,
+                error: {
+                    code: 'INVALID_INPUT',
+                    message: 'Lot ID is required',
+                },
+            };
+        }
+        await updateInventoryLot(lotId, {
             listPrice: input.listPrice,
             status: input.status,
             internalNotes: input.internalNotes,

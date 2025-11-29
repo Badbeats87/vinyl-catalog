@@ -427,7 +427,8 @@ export async function getInventoryDetail(
 }
 
 export interface UpdateInventoryInput {
-  lotId: string;
+  lotId?: string;
+  id?: string;
   listPrice?: number;
   status?: string;
   internalNotes?: string;
@@ -439,7 +440,18 @@ export interface UpdateInventoryInput {
  */
 export async function updateInventory(input: UpdateInventoryInput): Promise<ApiResponse<null>> {
   try {
-    await updateInventoryLot(input.lotId, {
+    const lotId = input.lotId || input.id;
+    if (!lotId) {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Lot ID is required',
+        },
+      };
+    }
+
+    await updateInventoryLot(lotId, {
       listPrice: input.listPrice,
       status: input.status,
       internalNotes: input.internalNotes,
