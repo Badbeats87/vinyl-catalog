@@ -567,6 +567,53 @@ app.post('/api/buyer/orders/:orderId/paypal-capture', authenticate, requireBuyer
   }
 });
 
+// Stripe Payment Intent - Create payment intent for Stripe checkout
+app.post('/api/buyer/payment-intent', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { amount, currency, orderId, email, name } = req.body;
+
+    if (!amount || !currency || !orderId || !email || !name) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing required fields: amount, currency, orderId, email, name',
+        },
+      });
+      return;
+    }
+
+    const stripePayment = require('../services/stripe-payment.js');
+    const result = await stripePayment.createPaymentIntent({
+      amount,
+      currency,
+      orderId,
+      email,
+      customerId: (req as any).userId || '',
+      description: `Order ${orderId}`,
+    });
+
+    if (!result.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'PAYMENT_ERROR',
+          message: result.error || 'Failed to create payment intent',
+        },
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      clientSecret: result.clientSecret,
+      paymentIntentId: result.paymentIntentId,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/buyer/orders', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;

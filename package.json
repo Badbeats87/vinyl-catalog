@@ -23,6 +23,8 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@stripe/react-stripe-js": "^5.4.1",
+    "@stripe/stripe-js": "^8.5.3",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
