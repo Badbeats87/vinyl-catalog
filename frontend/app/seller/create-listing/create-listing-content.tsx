@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useCurrency } from '@/lib/currency-context';
 import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
+import PhotoUpload, { UploadedPhoto } from '@/components/PhotoUpload';
 
 interface DiscogsRecord {
   id: string;
@@ -48,12 +49,67 @@ export default function CreateListingContent() {
   const [conditionMedia, setConditionMedia] = useState('Very Good');
   const [conditionSleeve, setConditionSleeve] = useState('Very Good');
 
+  // Photo state
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
+
   // Field errors
   const [fieldErrors, setFieldErrors] = useState<{
     searchQuery?: string;
     buyPrice?: string;
     sellPrice?: string;
   }>({});
+
+  const DRAFT_STORAGE_KEY = 'listing_draft';
+
+  // Save draft to localStorage
+  const saveDraft = useCallback(() => {
+    const draft = {
+      step,
+      searchQuery,
+      selectedRecord,
+      buyPrice,
+      sellPrice,
+      buyPriceInput,
+      sellPriceInput,
+      conditionMedia,
+      conditionSleeve,
+      photoCount: photos.length,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [step, searchQuery, selectedRecord, buyPrice, sellPrice, buyPriceInput, sellPriceInput, conditionMedia, conditionSleeve, photos.length]);
+
+  // Load draft from localStorage
+  const loadDraft = useCallback(() => {
+    const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (draft) {
+      const parsed = JSON.parse(draft);
+      setStep(parsed.step || 'search');
+      setSearchQuery(parsed.searchQuery || '');
+      setSelectedRecord(parsed.selectedRecord || null);
+      setBuyPrice(parsed.buyPrice || null);
+      setSellPrice(parsed.sellPrice || null);
+      setBuyPriceInput(parsed.buyPriceInput || '');
+      setSellPriceInput(parsed.sellPriceInput || '');
+      setConditionMedia(parsed.conditionMedia || 'Very Good');
+      setConditionSleeve(parsed.conditionSleeve || 'Very Good');
+    }
+  }, []);
+
+  // Clear draft
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setSearchQuery('');
+    setSelectedRecord(null);
+    setBuyPrice(null);
+    setSellPrice(null);
+    setBuyPriceInput('');
+    setSellPriceInput('');
+    setConditionMedia('Very Good');
+    setConditionSleeve('Very Good');
+    setPhotos([]);
+    setStep('search');
+  }, []);
 
   // Validate search query
   const validateSearchQuery = (value: string): string | undefined => {
@@ -133,11 +189,25 @@ export default function CreateListingContent() {
     }
   };
 
+  // Load draft on component mount
   useEffect(() => {
     if (!user || user.userType !== 'seller') {
       router.push('/');
+      return;
     }
-  }, [user, router]);
+    loadDraft();
+  }, [user, router, loadDraft]);
+
+  // Auto-save draft every 30 seconds if there's data
+  useEffect(() => {
+    if (selectedRecord || searchQuery || buyPriceInput || sellPriceInput) {
+      const saveTimer = setInterval(() => {
+        saveDraft();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(saveTimer);
+    }
+  }, [saveDraft, selectedRecord, searchQuery, buyPriceInput, sellPriceInput]);
 
   const handleSearch = async () => {
     const error = validateSearchQuery(searchQuery);
@@ -261,6 +331,26 @@ export default function CreateListingContent() {
           <div className="w-24"></div>
         </div>
       </header>
+
+      {/* Draft Status Banner */}
+      {localStorage.getItem(DRAFT_STORAGE_KEY) && (
+        <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                📝 Draft saved - Continue your listing or start fresh
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearDraft}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Clear Draft
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-6 py-12">
         {step === 'search' ? (
@@ -406,11 +496,57 @@ export default function CreateListingContent() {
                     </div>
                   </div>
 
+                  {/* Photo Upload */}
+                  <div className="border border-gray-200 rounded-lg p-8">
+                    <h3 className="text-base font-medium text-gray-900 mb-6">Listing Photos</h3>
+                    <PhotoUpload
+                      onPhotosChange={setPhotos}
+                      maxPhotos={5}
+                      maxSizeMB={10}
+                    />
+                    {photos.length > 0 && (
+                      <p className="text-sm text-gray-600 mt-4">
+                        {photos.length > 1
+                          ? `${photos.length} photos uploaded. Main photo: ${photos.find(p => p.isMain)?.file.name}`
+                          : `1 photo uploaded: ${photos[0].file.name}`}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Pricing Fields */}
                   <div className="border border-gray-200 rounded-lg p-8 space-y-6">
                     <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
                       Pricing <span className="text-red-600">*</span>
                     </label>
+
+                    {/* Price Preview Card */}
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 mb-1">We Pay</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {currency}{(buyPriceInput ? parseFloat(buyPriceInput) : buyPrice)?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                      <div className="text-center border-l border-r border-gray-300">
+                        <p className="text-xs text-gray-600 mb-1">You List For</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {currency}{(sellPriceInput ? parseFloat(sellPriceInput) : sellPrice)?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 mb-1">Profit Margin</p>
+                        <p className={`text-2xl font-bold ${
+                          ((sellPriceInput ? parseFloat(sellPriceInput) : sellPrice) ?? 0) > ((buyPriceInput ? parseFloat(buyPriceInput) : buyPrice) ?? 0)
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}>
+                          {buyPriceInput && sellPriceInput
+                            ? `${(((parseFloat(sellPriceInput) - parseFloat(buyPriceInput)) / parseFloat(buyPriceInput)) * 100).toFixed(1)}%`
+                            : '—'
+                          }
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-6">
                       {/* Buy Price */}
