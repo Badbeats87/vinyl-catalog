@@ -785,10 +785,11 @@ export default function AdminDashboard() {
                                         });
                                         console.log('Inventory fetch status:', inventoryRes.status);
                                         const inventoryData = await inventoryRes.json();
-                                        console.log('Inventory data:', inventoryData);
+                                        console.log('Inventory data:', JSON.stringify(inventoryData, null, 2));
                                         if (inventoryData.success) {
                                           const lotsCount = inventoryData.data?.lots?.length || 0;
                                           console.log(`Setting ${lotsCount} lots to inventory state`);
+                                          console.log('Full lots data:', JSON.stringify(inventoryData.data?.lots, null, 2));
                                           setInventory(inventoryData.data?.lots || []);
                                           setCurrentInventoryPage(1); // Reset to page 1
                                         } else {
