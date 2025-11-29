@@ -2,4 +2,4 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "npm run build && echo '=== Checking dist/ contents ===' && ls -la dist/ && echo '=== Checking dist/middleware/ ===' && ls -la dist/middleware/ 2>&1 || echo 'dist/middleware does not exist' && npm run db:migrate:prod && npm run start:prod"
+startCommand = "npm run build && npm run db:migrate:prod && npm run start:prod"
