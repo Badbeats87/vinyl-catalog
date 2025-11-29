@@ -320,9 +320,19 @@ app.get('/api/admin/inventory', authenticate, requireAdmin, async (req: Request,
       req.query.channel as string,
       req.query.releaseId as string,
       undefined,
+      undefined,
       limit,
       offset
     );
+    res.status(response.success ? 200 : 400).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/inventory/metrics', authenticate, requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const response = await adminRoutes.getInventoryMetricsRoute();
     res.status(response.success ? 200 : 400).json(response);
   } catch (error) {
     next(error);
@@ -342,15 +352,6 @@ app.get('/api/admin/inventory/:identifier', authenticate, requireAdmin, async (r
 app.put('/api/admin/inventory', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const response = await adminRoutes.updateInventory(req.body);
-    res.status(response.success ? 200 : 400).json(response);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/api/admin/inventory/metrics', authenticate, requireAdmin, async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const response = await adminRoutes.getInventoryMetricsRoute();
     res.status(response.success ? 200 : 400).json(response);
   } catch (error) {
     next(error);
