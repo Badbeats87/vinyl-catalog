@@ -66,18 +66,26 @@ export async function createInventoryLot(input) {
     return lot.lotNumber;
 }
 /**
- * Create inventory lot from a finalized submission item
+ * Create inventory lot from a submission item
+ * Uses finalized values if available, otherwise falls back to seller-provided values
  */
 export async function createInventoryLotFromSubmissionItem(item) {
-    if (!item.finalConditionMedia || !item.finalConditionSleeve || !item.finalOfferPrice) {
-        throw new ValidationError('Submission item must have final condition and price set');
+    if (!item.releaseId) {
+        throw new ValidationError('Submission item must have a release');
+    }
+    // Use final values if set, otherwise use seller values
+    const conditionMedia = item.finalConditionMedia || item.sellerConditionMedia;
+    const conditionSleeve = item.finalConditionSleeve || item.sellerConditionSleeve;
+    const offerPrice = item.finalOfferPrice || item.autoOfferPrice;
+    if (!conditionMedia || !conditionSleeve || !offerPrice) {
+        throw new ValidationError('Submission item must have condition and price information');
     }
     return createInventoryLot({
         releaseId: item.releaseId,
-        conditionMedia: item.finalConditionMedia,
-        conditionSleeve: item.finalConditionSleeve,
-        costBasis: item.finalOfferPrice,
-        listPrice: item.finalOfferPrice, // Initial list price equals cost (pricing strategy can adjust later)
+        conditionMedia,
+        conditionSleeve,
+        costBasis: offerPrice,
+        listPrice: offerPrice, // Initial list price equals cost (pricing strategy can adjust later)
         quantity: item.quantity,
         channel: 'web',
         internalNotes: `Created from submission ${item.submissionId}. Original seller condition: ${item.sellerConditionMedia}/${item.sellerConditionSleeve}`,

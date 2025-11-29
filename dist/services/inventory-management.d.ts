@@ -18,7 +18,8 @@ export interface CreateInventoryLotInput {
  */
 export declare function createInventoryLot(input: CreateInventoryLotInput): Promise<string>;
 /**
- * Create inventory lot from a finalized submission item
+ * Create inventory lot from a submission item
+ * Uses finalized values if available, otherwise falls back to seller-provided values
  */
 export declare function createInventoryLotFromSubmissionItem(item: SubmissionItem): Promise<string>;
 /**
