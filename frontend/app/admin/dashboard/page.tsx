@@ -2664,7 +2664,7 @@ export default function AdminDashboard() {
                                 onChange={(e) => setCreateSearchQuery(e.target.value)}
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
-                                    handleCreateSearch();
+                                    handleSearch();
                                   }
                                 }}
                                 placeholder="Artist, album, or catalog number"
