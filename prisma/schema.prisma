@@ -68,6 +68,9 @@ model ConditionTier {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  policyDiscounts PolicyConditionDiscount[]
+
   @@index([name])
 }
 
@@ -113,9 +116,30 @@ model PricingPolicy {
 
   // Relations
   auditLogs        PricingCalculationAudit[]
+  conditionDiscounts PolicyConditionDiscount[]
 
   @@index([scope, scopeValue])
   @@index([isActive])
+}
+
+// Policy condition discounts - per-condition pricing adjustments
+model PolicyConditionDiscount {
+  id                      String   @id @default(cuid())
+  policyId                String
+  conditionTierId         String
+  buyDiscountPercentage   Float    @default(0) // e.g., 15 for 15% discount on buying offers
+  sellDiscountPercentage  Float    @default(0) // e.g., 10 for 10% discount on selling prices
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relations
+  policy                  PricingPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  conditionTier           ConditionTier @relation(fields: [conditionTierId], references: [id], onDelete: Restrict)
+
+  @@unique([policyId, conditionTierId])
+  @@index([policyId])
+  @@index([conditionTierId])
 }
 
 // Seller submission (incoming offer request)

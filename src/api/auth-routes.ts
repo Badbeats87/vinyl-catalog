@@ -4,7 +4,7 @@
  * In production, integrate with OAuth2/SAML provider
  */
 
-import { generateToken } from '../middleware/auth';
+import { generateToken } from '../middleware/auth.js';
 
 export interface LoginRequest {
   email: string;

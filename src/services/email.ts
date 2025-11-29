@@ -4,7 +4,7 @@
  * Currently a stub for development - can be extended with Nodemailer, SendGrid, etc.
  */
 
-import { SubmissionDetail } from './seller-submissions';
+import { SubmissionDetail } from './seller-submissions.js';
 
 export interface EmailNotification {
   to: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -40,7 +40,9 @@ interface PricingPolicy {
   buyPercentage: number;
   sellPercentage: number;
   isActive?: boolean;
+  buyMarketSource?: string;
   buyMarketStat?: string;
+  sellMarketSource?: string;
   sellMarketStat?: string;
 }
 
@@ -98,9 +100,39 @@ export default function AdminDashboard() {
   const [newPolicyName, setNewPolicyName] = useState('');
   const [newBuyPercentage, setNewBuyPercentage] = useState(55);
   const [newSellPercentage, setNewSellPercentage] = useState(125);
+  const [newBuyMarketSource, setNewBuyMarketSource] = useState('discogs');
+  const [newBuyMarketStat, setNewBuyMarketStat] = useState('median');
+  const [newSellMarketSource, setNewSellMarketSource] = useState('discogs');
+  const [newSellMarketStat, setNewSellMarketStat] = useState('median');
   const [policyLoading, setPolicyLoading] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const [policySuccess, setPolicySuccess] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSuccess, setEditSuccess] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PricingPolicy | null>(null);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
+
+  // Condition discount state and refs
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [discountSuccess, setDiscountSuccess] = useState(false);
+  const [conditionTiers, setConditionTiers] = useState<any[]>([]);
+
+  // Buy discounts
+  const mintBuyDiscountRef = useRef<HTMLInputElement>(null);
+  const nmBuyDiscountRef = useRef<HTMLInputElement>(null);
+  const vgPlusBuyDiscountRef = useRef<HTMLInputElement>(null);
+  const vgBuyDiscountRef = useRef<HTMLInputElement>(null);
+  const vgMinusBuyDiscountRef = useRef<HTMLInputElement>(null);
+  const goodBuyDiscountRef = useRef<HTMLInputElement>(null);
+
+  // Sell discounts
+  const mintSellDiscountRef = useRef<HTMLInputElement>(null);
+  const nmSellDiscountRef = useRef<HTMLInputElement>(null);
+  const vgPlusSellDiscountRef = useRef<HTMLInputElement>(null);
+  const vgSellDiscountRef = useRef<HTMLInputElement>(null);
+  const vgMinusSellDiscountRef = useRef<HTMLInputElement>(null);
+  const goodSellDiscountRef = useRef<HTMLInputElement>(null);
 
   const [analytics, setAnalytics] = useState<AnalyticStats>({
     inventoryValue: 0,
@@ -252,6 +284,20 @@ export default function AdminDashboard() {
       }
     };
     loadPolicies();
+
+    // Load condition tiers for discount configuration
+    const loadConditionTiers = async () => {
+      try {
+        const res = await fetch('/api/pricing/conditions');
+        const data = await res.json();
+        if (data.success) {
+          setConditionTiers(data.conditionTiers || []);
+        }
+      } catch (err) {
+        console.error('Failed to load condition tiers:', err);
+      }
+    };
+    loadConditionTiers();
   }, []);
 
   // Fetch inventory data
@@ -420,10 +466,35 @@ export default function AdminDashboard() {
   };
 
   const handleCreatePolicy = async () => {
+    // Clear previous messages
+    setPolicyError(null);
+    setPolicySuccess(false);
+
+    // Client-side validation
+    const validationErrors: string[] = [];
+
     if (!newPolicyName.trim()) {
-      alert('Please enter a strategy name');
+      validationErrors.push('Strategy name is required');
+    } else if (newPolicyName.trim().length > 100) {
+      validationErrors.push('Strategy name must not exceed 100 characters');
+    }
+
+    const buyPercentageNum = newBuyPercentage / 100;
+    const sellPercentageNum = newSellPercentage / 100;
+
+    if (buyPercentageNum <= 0 || buyPercentageNum > 5) {
+      validationErrors.push('Buy percentage must be between 1% and 500%');
+    }
+
+    if (sellPercentageNum <= 0 || sellPercentageNum > 5) {
+      validationErrors.push('Sell percentage must be between 1% and 500%');
+    }
+
+    if (validationErrors.length > 0) {
+      setPolicyError(validationErrors.join('; '));
       return;
     }
+
     setPolicyLoading(true);
     try {
       const res = await fetch('/api/pricing/policies', {
@@ -431,9 +502,13 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newPolicyName,
-          buyPercentage: newBuyPercentage / 100,
-          sellPercentage: newSellPercentage / 100,
-          description: `Buy at ${newBuyPercentage}% of market price, Sell at ${newSellPercentage}% of market price`,
+          buyPercentage: buyPercentageNum,
+          sellPercentage: sellPercentageNum,
+          buyMarketSource: newBuyMarketSource,
+          buyMarketStat: newBuyMarketStat,
+          sellMarketSource: newSellMarketSource,
+          sellMarketStat: newSellMarketStat,
+          description: `Buy at ${newBuyPercentage}% of ${newBuyMarketStat} ${newBuyMarketSource} price, Sell at ${newSellPercentage}% of ${newSellMarketStat} ${newSellMarketSource} price`,
         }),
       });
       const data = await res.json();
@@ -442,13 +517,18 @@ export default function AdminDashboard() {
         setNewPolicyName('');
         setNewBuyPercentage(55);
         setNewSellPercentage(125);
-        alert('Strategy created successfully!');
+        setNewBuyMarketSource('discogs');
+        setNewBuyMarketStat('median');
+        setNewSellMarketSource('discogs');
+        setNewSellMarketStat('median');
+        setPolicySuccess(true);
+        setTimeout(() => setPolicySuccess(false), 4000);
       } else {
-        alert(data.error || 'Failed to create strategy');
+        setPolicyError(data.error || 'Failed to create strategy');
       }
     } catch (err) {
       console.error('Error creating policy:', err);
-      alert('Failed to create strategy');
+      setPolicyError('Failed to create strategy. Please try again.');
     } finally {
       setPolicyLoading(false);
     }
@@ -456,15 +536,45 @@ export default function AdminDashboard() {
 
   const handleEditPolicy = async () => {
     if (!editingPolicy) return;
+
+    // Clear previous messages
+    setEditError(null);
+    setEditSuccess(false);
+
+    // Client-side validation
+    const validationErrors: string[] = [];
+
+    if (!editingPolicy.name || editingPolicy.name.trim().length === 0) {
+      validationErrors.push('Strategy name is required');
+    } else if (editingPolicy.name.trim().length > 100) {
+      validationErrors.push('Strategy name must not exceed 100 characters');
+    }
+
+    const buyPercentageNum = newBuyPercentage / 100;
+    const sellPercentageNum = newSellPercentage / 100;
+
+    if (buyPercentageNum <= 0 || buyPercentageNum > 5) {
+      validationErrors.push('Buy percentage must be between 1% and 500%');
+    }
+
+    if (sellPercentageNum <= 0 || sellPercentageNum > 5) {
+      validationErrors.push('Sell percentage must be between 1% and 500%');
+    }
+
+    if (validationErrors.length > 0) {
+      setEditError(validationErrors.join('; '));
+      return;
+    }
+
     setPolicyLoading(true);
     try {
       const res = await fetch(`/api/pricing/policies/${editingPolicy.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: editingPolicy.name,
-          buyPercentage: newBuyPercentage / 100,
-          sellPercentage: newSellPercentage / 100,
+          name: editingPolicy.name.trim(),
+          buyPercentage: buyPercentageNum,
+          sellPercentage: sellPercentageNum,
           description: `Buy at ${newBuyPercentage}% of market price, Sell at ${newSellPercentage}% of market price`,
         }),
       });
@@ -473,13 +583,14 @@ export default function AdminDashboard() {
         setPolicies(policies.map(p => p.id === editingPolicy.id ? data.policy : p));
         setEditingPolicy(null);
         setShowPolicyModal(false);
-        alert('Strategy updated successfully!');
+        setEditSuccess(true);
+        setTimeout(() => setEditSuccess(false), 4000);
       } else {
-        alert(data.error || 'Failed to update strategy');
+        setEditError(data.error || 'Failed to update strategy');
       }
     } catch (err) {
       console.error('Error updating policy:', err);
-      alert('Failed to update strategy');
+      setEditError('Failed to update strategy. Please try again.');
     } finally {
       setPolicyLoading(false);
     }
@@ -508,6 +619,12 @@ export default function AdminDashboard() {
     setEditingPolicy(policy);
     setNewBuyPercentage(Math.round(policy.buyPercentage * 100));
     setNewSellPercentage(Math.round(policy.sellPercentage * 100));
+    setNewBuyMarketSource(policy.buyMarketSource || 'discogs');
+    setNewBuyMarketStat(policy.buyMarketStat || 'median');
+    setNewSellMarketSource(policy.sellMarketSource || 'discogs');
+    setNewSellMarketStat(policy.sellMarketStat || 'median');
+    setEditError(null);
+    setEditSuccess(false);
     setShowPolicyModal(true);
   };
 
@@ -545,6 +662,93 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error activating policy:', err);
       alert('Failed to activate strategy');
+    }
+  };
+
+  const handleSaveDiscounts = async () => {
+    setDiscountError(null);
+    setDiscountSuccess(false);
+    setDiscountLoading(true);
+
+    try {
+      // Find the active policy
+      const activePolicy = policies.find(p => p.isActive);
+      if (!activePolicy) {
+        setDiscountError('No active pricing strategy found');
+        setDiscountLoading(false);
+        return;
+      }
+
+      if (!conditionTiers || conditionTiers.length === 0) {
+        setDiscountError('Condition tiers not loaded');
+        setDiscountLoading(false);
+        return;
+      }
+
+      // Map condition tier names to IDs
+      const tierMap = Object.fromEntries(
+        conditionTiers.map((t: any) => [t.name.toLowerCase().replace(/ /g, '-'), t.id])
+      );
+
+      // Collect all discount values (both buy and sell for each tier)
+      const discounts = [
+        {
+          conditionTierId: tierMap['mint'],
+          buyDiscountPercentage: parseInt(mintBuyDiscountRef.current?.value || '0'),
+          sellDiscountPercentage: parseInt(mintSellDiscountRef.current?.value || '0'),
+        },
+        {
+          conditionTierId: tierMap['near-mint'] || tierMap['nm'],
+          buyDiscountPercentage: parseInt(nmBuyDiscountRef.current?.value || '0'),
+          sellDiscountPercentage: parseInt(nmSellDiscountRef.current?.value || '5'),
+        },
+        {
+          conditionTierId: tierMap['vg+'] || tierMap['vg-plus'],
+          buyDiscountPercentage: parseInt(vgPlusBuyDiscountRef.current?.value || '0'),
+          sellDiscountPercentage: parseInt(vgPlusSellDiscountRef.current?.value || '15'),
+        },
+        {
+          conditionTierId: tierMap['very-good'] || tierMap['vg'],
+          buyDiscountPercentage: parseInt(vgBuyDiscountRef.current?.value || '0'),
+          sellDiscountPercentage: parseInt(vgSellDiscountRef.current?.value || '25'),
+        },
+        {
+          conditionTierId: tierMap['vg-'] || tierMap['vg-minus'],
+          buyDiscountPercentage: parseInt(vgMinusBuyDiscountRef.current?.value || '0'),
+          sellDiscountPercentage: parseInt(vgMinusSellDiscountRef.current?.value || '35'),
+        },
+        {
+          conditionTierId: tierMap['good'] || tierMap['g'],
+          buyDiscountPercentage: parseInt(goodBuyDiscountRef.current?.value || '0'),
+          sellDiscountPercentage: parseInt(goodSellDiscountRef.current?.value || '50'),
+        },
+      ].filter(d => d.conditionTierId); // Filter out any missing tier IDs
+
+      if (discounts.length === 0) {
+        setDiscountError('Could not map all condition tiers');
+        setDiscountLoading(false);
+        return;
+      }
+
+      // Call the API
+      const res = await fetch(`/api/pricing/policies/${activePolicy.id}/discounts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discounts }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setDiscountSuccess(true);
+        setTimeout(() => setDiscountSuccess(false), 3000);
+      } else {
+        setDiscountError(data.error || 'Failed to save discounts');
+      }
+    } catch (err) {
+      console.error('Error saving discounts:', err);
+      setDiscountError('An error occurred while saving discounts');
+    } finally {
+      setDiscountLoading(false);
     }
   };
 
@@ -1286,6 +1490,18 @@ export default function AdminDashboard() {
             <div className="border border-gray-200 rounded-lg p-8">
               <h2 className="text-lg font-light text-gray-900 mb-6">Create Strategy</h2>
 
+              {policyError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                  {policyError}
+                </div>
+              )}
+
+              {policySuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                  Strategy created successfully!
+                </div>
+              )}
+
               <div className="space-y-6 mb-6">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Name</label>
@@ -1303,11 +1519,27 @@ export default function AdminDashboard() {
                     <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Buy</label>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Base Price</label>
-                        <select className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm">
-                          <option>Lowest</option>
-                          <option>Median</option>
-                          <option>Highest</option>
+                        <label className="block text-xs text-gray-600 mb-1">Market Source</label>
+                        <select
+                          value={newBuyMarketSource}
+                          onChange={(e) => setNewBuyMarketSource(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                        >
+                          <option value="discogs">Discogs</option>
+                          <option value="ebay">eBay</option>
+                          <option value="hybrid">Hybrid (Avg)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Price Statistic</label>
+                        <select
+                          value={newBuyMarketStat}
+                          onChange={(e) => setNewBuyMarketStat(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                        >
+                          <option value="low">Lowest</option>
+                          <option value="median">Median</option>
+                          <option value="high">Highest</option>
                         </select>
                       </div>
                       <div>
@@ -1321,18 +1553,34 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 mt-2">Price = Market × {newBuyPercentage}%</p>
+                    <p className="text-xs text-gray-600 mt-2">Buy at {newBuyPercentage}% of {newBuyMarketStat} {newBuyMarketSource} price</p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Sell</label>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Base Price</label>
-                        <select className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm">
-                          <option>Lowest</option>
-                          <option>Median</option>
-                          <option>Highest</option>
+                        <label className="block text-xs text-gray-600 mb-1">Market Source</label>
+                        <select
+                          value={newSellMarketSource}
+                          onChange={(e) => setNewSellMarketSource(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                        >
+                          <option value="discogs">Discogs</option>
+                          <option value="ebay">eBay</option>
+                          <option value="hybrid">Hybrid (Avg)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Price Statistic</label>
+                        <select
+                          value={newSellMarketStat}
+                          onChange={(e) => setNewSellMarketStat(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                        >
+                          <option value="low">Lowest</option>
+                          <option value="median">Median</option>
+                          <option value="high">Highest</option>
                         </select>
                       </div>
                       <div>
@@ -1346,7 +1594,7 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 mt-2">Price = Market × {newSellPercentage}%</p>
+                    <p className="text-xs text-gray-600 mt-2">Sell at {newSellPercentage}% of {newSellMarketStat} {newSellMarketSource} price</p>
                   </div>
                 </div>
 
@@ -1358,6 +1606,228 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </div>
+
+            {/* Condition Discounts Configuration */}
+            {policies.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-8">
+                <h2 className="text-lg font-light text-gray-900 mb-6">Condition Discounts</h2>
+                <p className="text-sm text-gray-600 mb-6">Set separate discounts for buying (what you pay sellers) and selling (what customers pay) for each condition tier</p>
+
+                <div className="space-y-6">
+                  {/* Mint */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Mint (Premium)</h3>
+                    <p className="text-xs text-gray-600 mb-4">Premium condition - minimal or no wear</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy Discount %</label>
+                        <input
+                          ref={mintBuyDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell Discount %</label>
+                        <input
+                          ref={mintSellDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Near Mint */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Near Mint (NM)</h3>
+                    <p className="text-xs text-gray-600 mb-4">Nearly perfect with minimal wear</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy Discount %</label>
+                        <input
+                          ref={nmBuyDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell Discount %</label>
+                        <input
+                          ref={nmSellDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="5"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="5"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* VG+ */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">VG+ (Very Good Plus)</h3>
+                    <p className="text-xs text-gray-600 mb-4">Vinyl and sleeve show minor signs of wear</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy Discount %</label>
+                        <input
+                          ref={vgPlusBuyDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell Discount %</label>
+                        <input
+                          ref={vgPlusSellDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="15"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="15"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Very Good */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Very Good (VG)</h3>
+                    <p className="text-xs text-gray-600 mb-4">Vinyl and sleeve show visible signs of wear</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy Discount %</label>
+                        <input
+                          ref={vgBuyDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell Discount %</label>
+                        <input
+                          ref={vgSellDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="25"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="25"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* VG- */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">VG- (Very Good Minus)</h3>
+                    <p className="text-xs text-gray-600 mb-4">Vinyl and sleeve show significant wear</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy Discount %</label>
+                        <input
+                          ref={vgMinusBuyDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell Discount %</label>
+                        <input
+                          ref={vgMinusSellDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="35"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="35"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Good */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Good (G)</h3>
+                    <p className="text-xs text-gray-600 mb-4">Vinyl and sleeve show heavy wear - acceptable but playing/quality affected</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Buy Discount %</label>
+                        <input
+                          ref={goodBuyDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Sell Discount %</label>
+                        <input
+                          ref={goodSellDiscountRef}
+                          type="number"
+                          min="0"
+                          max="100"
+                          defaultValue="50"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 text-sm"
+                          placeholder="50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {discountError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded">
+                    {discountError}
+                  </div>
+                )}
+
+                {discountSuccess && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded">
+                    Discounts saved successfully!
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSaveDiscounts}
+                  disabled={discountLoading}
+                  className="w-full mt-4 px-6 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded transition"
+                >
+                  {discountLoading ? 'Saving...' : 'Save Discounts'}
+                </button>
+              </div>
+            )}
 
             {/* Existing Policies */}
             {policies.length > 0 && (
@@ -1435,6 +1905,18 @@ export default function AdminDashboard() {
                       ✕
                     </button>
                   </div>
+
+                  {editError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                      {editError}
+                    </div>
+                  )}
+
+                  {editSuccess && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                      Strategy updated successfully!
+                    </div>
+                  )}
 
                   <div className="space-y-6 mb-6">
                     <div>

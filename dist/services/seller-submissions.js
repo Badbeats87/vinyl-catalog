@@ -2,11 +2,11 @@
  * Seller Submission Service
  * Handles seller workflows: search, quote generation, and submission management
  */
-import { prisma } from '../db/client';
-import { getFullPricingQuote } from './pricing';
-import { getPolicyForRelease } from './pricing-policies';
-import { validateSearchQuery, validateLimit, ValidationError } from '../validation/inputs';
-import { sendSubmissionConfirmation } from './email';
+import { prisma } from '../db/client.js';
+import { getFullPricingQuote } from './pricing.js';
+import { getPolicyForRelease } from './pricing-policies.js';
+import { validateSearchQuery, validateLimit, ValidationError } from '../validation/inputs.js';
+import { sendSubmissionConfirmation } from './email.js';
 /**
  * Levenshtein distance algorithm for fuzzy matching
  * Returns similarity score between 0 and 1 (1 = exact match)

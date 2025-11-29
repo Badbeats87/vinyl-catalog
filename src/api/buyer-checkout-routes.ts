@@ -1,6 +1,6 @@
-import * as cartService from '../services/shopping-cart';
-import * as checkoutService from '../services/checkout';
-import * as buyerService from '../services/buyer-accounts';
+import * as cartService from '../services/shopping-cart.js';
+import * as checkoutService from '../services/checkout.js';
+import * as buyerService from '../services/buyer-accounts.js';
 
 // ============================================================================
 // TYPES & INTERFACES

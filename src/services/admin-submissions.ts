@@ -3,10 +3,10 @@
  * Handles admin operations: viewing submissions, filtering, accepting/rejecting, inspection, etc.
  */
 
-import { prisma } from '../db/client';
-import { ValidationError } from '../validation/inputs';
-import { sendCounterOfferNotification } from './email';
-import { createInventoryLotFromSubmissionItem } from './inventory-management';
+import { prisma } from '../db/client.js';
+import { ValidationError } from '../validation/inputs.js';
+import { sendCounterOfferNotification } from './email.js';
+import { createInventoryLotFromSubmissionItem } from './inventory-management.js';
 
 export interface AdminSubmissionListFilters {
   status?: string; // "pending_review", "accepted", "rejected", "counter_offered", "payment_sent", "expired"

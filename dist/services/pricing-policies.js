@@ -1,5 +1,5 @@
-import { prisma } from '../db/client';
-import { ValidationError, validatePolicyName, validateScope, validatePercentage, validateWeight, validateWeightSum, validatePrice, validateDays, } from '../validation/inputs';
+import { prisma } from '../db/client.js';
+import { ValidationError, validatePolicyName, validateScope, validatePercentage, validateWeight, validateWeightSum, validatePrice, validateDays, } from '../validation/inputs.js';
 /**
  * Create a new pricing policy with validation
  */

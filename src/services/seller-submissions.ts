@@ -4,11 +4,11 @@
  */
 
 import { Release, SellerSubmission } from '@prisma/client';
-import { prisma } from '../db/client';
-import { getFullPricingQuote } from './pricing';
-import { getPolicyForRelease } from './pricing-policies';
-import { validateSearchQuery, validateLimit, ValidationError } from '../validation/inputs';
-import { sendSubmissionConfirmation } from './email';
+import { prisma } from '../db/client.js';
+import { getFullPricingQuote } from './pricing.js';
+import { getPolicyForRelease } from './pricing-policies.js';
+import { validateSearchQuery, validateLimit, ValidationError } from '../validation/inputs.js';
+import { sendSubmissionConfirmation } from './email.js';
 
 /**
  * Levenshtein distance algorithm for fuzzy matching

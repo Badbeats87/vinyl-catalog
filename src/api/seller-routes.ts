@@ -17,8 +17,8 @@ import {
   QuoteResponse,
   SubmissionResponse,
   SubmissionDetail,
-} from '../services/seller-submissions';
-import { ValidationError } from '../validation/inputs';
+} from '../services/seller-submissions.js';
+import { ValidationError } from '../validation/inputs.js';
 
 /**
  * Standard API response wrapper
@@ -338,7 +338,9 @@ export interface CreateListingRequest {
   format: string;
   catalog?: string;
   imageUrl?: string;
-  condition: string;
+  condition?: string; // Backward compatibility
+  conditionMedia?: string; // New separate field
+  conditionSleeve?: string; // New separate field
   buyingPrice: number;
   sellingPrice: number;
   notes?: string;
@@ -388,6 +390,11 @@ export async function createListing(request: CreateListingRequest, userId: strin
 
       // Create seller submission
       const submissionNumber = `SUB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+      // Use separate conditions if provided, otherwise fall back to single condition (backward compat)
+      const mediaCondition = request.conditionMedia || request.condition || 'Very Good';
+      const sleeveCondition = request.conditionSleeve || request.condition || 'Very Good';
+
       const submission = await prisma.sellerSubmission.create({
         data: {
           submissionNumber,
@@ -399,8 +406,8 @@ export async function createListing(request: CreateListingRequest, userId: strin
             create: {
               releaseId: release.id,
               quantity: 1,
-              sellerConditionMedia: request.condition,
-              sellerConditionSleeve: request.condition,
+              sellerConditionMedia: mediaCondition,
+              sellerConditionSleeve: sleeveCondition,
               autoOfferPrice: request.buyingPrice,
               itemNotes: request.notes,
             },

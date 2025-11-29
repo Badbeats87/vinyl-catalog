@@ -2,9 +2,10 @@
  * Admin API Routes
  * Handles admin operations for submissions, inventory, and business intelligence
  */
-import { listAdminSubmissions, getAdminSubmissionDetail, acceptSubmissionItem, rejectSubmissionItem, counterOfferSubmissionItem, inspectSubmissionItem, finalizeSubmissionItem, acceptAllSubmissionItems, rejectAllSubmissionItems, getAdminSubmissionMetrics, recordSellerCounterOfferResponse, } from '../services/admin-submissions';
-import { listInventoryLots, getInventoryLot, updateInventoryLot, getInventoryMetrics, } from '../services/inventory-management';
-import { ValidationError } from '../validation/inputs';
+import { listAdminSubmissions, getAdminSubmissionDetail, acceptSubmissionItem, rejectSubmissionItem, counterOfferSubmissionItem, inspectSubmissionItem, finalizeSubmissionItem, acceptAllSubmissionItems, rejectAllSubmissionItems, getAdminSubmissionMetrics, recordSellerCounterOfferResponse, } from '../services/admin-submissions.js';
+import { listInventoryLots, getInventoryLot, updateInventoryLot, getInventoryMetrics, } from '../services/inventory-management.js';
+import { getPolicyConditionDiscounts, setConditionDiscount, setBulkConditionDiscounts, getAllConditionTiers, } from '../services/condition-discounts.js';
+import { ValidationError } from '../validation/inputs.js';
 /**
  * List submissions with filters for admin dashboard
  */
@@ -340,6 +341,8 @@ export async function updateInventory(input) {
             status: input.status,
             internalNotes: input.internalNotes,
             channel: input.channel,
+            conditionMedia: input.conditionMedia,
+            conditionSleeve: input.conditionSleeve,
         });
         return {
             success: true,
@@ -598,17 +601,34 @@ export async function acceptSubmissionAndCreateInventory(submissionId) {
     try {
         const { prisma } = await import('../db/client');
         const { createInventoryLotFromSubmissionItem } = await import('../services/inventory-management');
-        // Find the submission
-        const submission = await prisma.sellerSubmission.findUnique({
-            where: { id: submissionId },
-            include: {
-                items: {
-                    include: {
-                        release: true,
+        // Find the submission by ID or submissionNumber
+        let submission;
+        if (submissionId.includes('-')) {
+            // Looks like a submissionNumber (e.g., SUB-1764410071896-I5MVV)
+            submission = await prisma.sellerSubmission.findFirst({
+                where: { submissionNumber: submissionId },
+                include: {
+                    items: {
+                        include: {
+                            release: true,
+                        },
                     },
                 },
-            },
-        });
+            });
+        }
+        else {
+            // Looks like an ID
+            submission = await prisma.sellerSubmission.findUnique({
+                where: { id: submissionId },
+                include: {
+                    items: {
+                        include: {
+                            release: true,
+                        },
+                    },
+                },
+            });
+        }
         if (!submission) {
             return {
                 success: false,
@@ -620,7 +640,7 @@ export async function acceptSubmissionAndCreateInventory(submissionId) {
         }
         // Update submission status
         await prisma.sellerSubmission.update({
-            where: { id: submissionId },
+            where: { id: submission.id },
             data: { status: 'accepted' },
         });
         // Create inventory for each item
@@ -690,6 +710,98 @@ export async function rejectSubmission(submissionId) {
             error: {
                 code: 'REJECT_SUBMISSION_ERROR',
                 message: error instanceof Error ? error.message : 'Failed to reject submission',
+            },
+        };
+    }
+}
+/**
+ * Get all condition tiers for policy configuration
+ */
+export async function getConditionTiers() {
+    try {
+        const tiers = await getAllConditionTiers();
+        return {
+            success: true,
+            data: {
+                tiers: tiers.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    order: t.order,
+                    mediaAdjustment: t.mediaAdjustment,
+                    sleeveAdjustment: t.sleeveAdjustment,
+                })),
+            },
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'GET_CONDITION_TIERS_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to get condition tiers',
+            },
+        };
+    }
+}
+/**
+ * Get condition discounts for a policy
+ */
+export async function getPolicyDiscounts(policyId) {
+    try {
+        const discounts = await getPolicyConditionDiscounts(policyId);
+        return {
+            success: true,
+            data: { discounts },
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'GET_POLICY_DISCOUNTS_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to get policy discounts',
+            },
+        };
+    }
+}
+/**
+ * Set condition discount for a policy
+ */
+export async function setDiscount(policyId, conditionTierId, buyDiscountPercentage, sellDiscountPercentage) {
+    try {
+        await setConditionDiscount(policyId, conditionTierId, buyDiscountPercentage, sellDiscountPercentage);
+        return {
+            success: true,
+            data: null,
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'SET_DISCOUNT_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to set discount',
+            },
+        };
+    }
+}
+/**
+ * Bulk set condition discounts for a policy
+ */
+export async function setDiscounts(policyId, discounts) {
+    try {
+        await setBulkConditionDiscounts(policyId, discounts);
+        return {
+            success: true,
+            data: null,
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'SET_DISCOUNTS_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to set discounts',
             },
         };
     }

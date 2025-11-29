@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '../../db/client';
+import { prisma } from '../../db/client.js';
 import {
   updateMarketSnapshot,
   batchUpdateMarketSnapshots,
@@ -7,7 +7,7 @@ import {
   getMarketDataStats,
   cleanupOldMarketData,
   type MarketDataRecord,
-} from '../market-data-ingestion';
+} from '../market-data-ingestion.js';
 import type { Release } from '@prisma/client';
 
 describe('Market Data Ingestion Service', () => {

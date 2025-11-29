@@ -8,13 +8,13 @@ import {
   updateRelease,
   deleteRelease,
   countReleases,
-} from '../services/releases';
+} from '../services/releases.js';
 import {
   createPricingPolicy,
   getPricingPolicyById,
   getActivePolicies,
   countActivePolicies,
-} from '../services/pricing-policies';
+} from '../services/pricing-policies.js';
 
 const rl = readline.createInterface({
   input: process.stdin,

@@ -89,13 +89,13 @@ export declare function getReleaseWithDetails(id: string): Promise<({
     id: string;
     createdAt: Date;
     updatedAt: Date;
-    genre: string | null;
     title: string;
     artist: string;
     label: string | null;
     catalogNumber: string | null;
     barcode: string | null;
     releaseYear: number | null;
+    genre: string | null;
     coverArtUrl: string | null;
 }) | null>;
 /**

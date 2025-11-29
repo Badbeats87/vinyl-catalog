@@ -1,5 +1,5 @@
-import { prisma } from '../db/client';
-import { validateReleaseTitle, validateArtistName, validateBarcode, validateReleaseYear, validateUrl, validateSearchQuery, validateLimit, } from '../validation/inputs';
+import { prisma } from '../db/client.js';
+import { validateReleaseTitle, validateArtistName, validateBarcode, validateReleaseYear, validateUrl, validateSearchQuery, validateLimit, } from '../validation/inputs.js';
 /**
  * Create a new release with validation
  */

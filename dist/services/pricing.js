@@ -1,4 +1,4 @@
-import { prisma } from '../db/client';
+import { prisma } from '../db/client.js';
 /**
  * Get the appropriate market price from snapshots based on policy config
  */
@@ -32,6 +32,40 @@ async function getMarketPrice(releaseId, policy, calculationType) {
             }
         }
     }
+    // If no stored snapshot found and source includes ebay, try fetching live eBay data
+    if (sources.includes('ebay')) {
+        try {
+            const { getEbayMarketData } = await import('./ebay-api');
+            const release = await prisma.release.findUnique({
+                where: { id: releaseId },
+            });
+            if (release && release.title && release.artist) {
+                console.log(`[Pricing] No cached eBay data, fetching live from eBay for: ${release.artist} - ${release.title}`);
+                const ebayData = await getEbayMarketData(release.title, release.artist);
+                if (ebayData) {
+                    let price = null;
+                    if (marketStat === 'low' && ebayData.statLow) {
+                        price = ebayData.statLow;
+                    }
+                    else if (marketStat === 'median' && ebayData.statMedian) {
+                        price = ebayData.statMedian;
+                    }
+                    else if (marketStat === 'high' && ebayData.statHigh) {
+                        price = ebayData.statHigh;
+                    }
+                    if (price !== null && price > 0) {
+                        console.log(`[Pricing] Got eBay ${marketStat}: $${price}`);
+                        // Note: snapshotId is null since this is live data, not from DB
+                        return { price, snapshotId: null, source: 'ebay' };
+                    }
+                }
+            }
+        }
+        catch (err) {
+            console.error(`[Pricing] Failed to fetch eBay data:`, err);
+            // Continue to fallback
+        }
+    }
     return { price: null, snapshotId: null, source: marketSource };
 }
 /**
@@ -48,6 +82,31 @@ async function getConditionAdjustment(conditionName) {
         mediaAdjustment: tier.mediaAdjustment,
         sleeveAdjustment: tier.sleeveAdjustment,
     };
+}
+/**
+ * Get policy-specific condition discount for a given condition
+ */
+async function getPolicyConditionDiscount(policyId, conditionTierId, type = 'buy') {
+    const discount = await prisma.policyConditionDiscount.findUnique({
+        where: {
+            policyId_conditionTierId: {
+                policyId,
+                conditionTierId,
+            },
+        },
+    });
+    if (!discount)
+        return null;
+    return type === 'buy' ? discount.buyDiscountPercentage : discount.sellDiscountPercentage;
+}
+/**
+ * Get condition tier ID by condition name
+ */
+async function getConditionTierId(conditionName) {
+    const tier = await prisma.conditionTier.findUnique({
+        where: { name: conditionName },
+    });
+    return tier ? tier.id : null;
 }
 /**
  * Apply rounding increment to price
@@ -94,12 +153,13 @@ export async function calculatePricing(input) {
         }
     }
     // Calculate condition-weighted adjustment
-    const conditionAdjustment = mediaAdjustment * policy.mediaWeight + sleeveAdjustment * policy.sleeveWeight;
+    let conditionAdjustment = mediaAdjustment * policy.mediaWeight + sleeveAdjustment * policy.sleeveWeight;
     // Determine formula percentage and stat type based on calculation type
     let formulaPercentage;
     let marketStat;
     let minCap;
     let maxCap;
+    const discountType = input.calculationType === 'buy_offer' ? 'buy' : 'sell';
     if (input.calculationType === 'buy_offer') {
         formulaPercentage = policy.buyPercentage;
         marketStat = policy.buyMarketStat;
@@ -112,10 +172,42 @@ export async function calculatePricing(input) {
         minCap = policy.sellMinCap;
         maxCap = policy.sellMaxCap;
     }
+    // Get policy-specific condition discounts and apply them (using correct buy/sell type)
+    let policyConditionDiscount = null;
+    let policyDiscountMultiplier = 1.0;
+    // For media condition discount
+    const mediaConditionTierId = await getConditionTierId(conditionMedia);
+    if (mediaConditionTierId) {
+        const mediaDiscount = await getPolicyConditionDiscount(policy.id, mediaConditionTierId, discountType);
+        if (mediaDiscount !== null) {
+            // Apply discount: if 15% discount, multiply by 0.85
+            policyDiscountMultiplier *= (1 - mediaDiscount / 100);
+            if (policyConditionDiscount === null)
+                policyConditionDiscount = mediaDiscount;
+        }
+    }
+    // For sleeve condition discount
+    const sleeveConditionTierId = await getConditionTierId(conditionSleeve);
+    if (sleeveConditionTierId) {
+        const sleeveDiscount = await getPolicyConditionDiscount(policy.id, sleeveConditionTierId, discountType);
+        if (sleeveDiscount !== null) {
+            // Apply discount
+            policyDiscountMultiplier *= (1 - sleeveDiscount / 100);
+            // Track the average/highest discount for reporting
+            if (policyConditionDiscount === null) {
+                policyConditionDiscount = sleeveDiscount;
+            }
+            else {
+                policyConditionDiscount = (policyConditionDiscount + sleeveDiscount) / 2;
+            }
+        }
+    }
+    // Apply policy condition discount to the condition adjustment
+    conditionAdjustment *= policyDiscountMultiplier;
     // Calculate price with fallback
     let priceBeforeRounding;
     if (baseMarketPrice !== null && baseMarketPrice > 0) {
-        // Apply formula: market price * percentage * condition adjustment
+        // Apply formula: market price * percentage * condition adjustment (including policy discounts)
         priceBeforeRounding = baseMarketPrice * formulaPercentage * conditionAdjustment;
     }
     else {
@@ -135,6 +227,7 @@ export async function calculatePricing(input) {
         conditionAdjustment,
         mediaWeight: policy.mediaWeight,
         sleeveWeight: policy.sleeveWeight,
+        policyConditionDiscount,
         priceBeforeRounding,
         roundingIncrement: policy.roundingIncrement,
         finalPrice,

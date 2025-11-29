@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
+import { useCurrency } from '@/lib/currency-context';
 
 export default function Cart() {
   const { user, logout } = useAuthStore();
   const { items, removeItem, clearCart } = useCartStore();
+  const { symbol: currency } = useCurrency();
   const router = useRouter();
 
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function Cart() {
                     {items.map((item) => (
                       <tr key={item.id} className="border-b border-gray-700 hover:bg-gray-750">
                         <td className="px-6 py-4">{item.title}</td>
-                        <td className="px-6 py-4">${item.price}</td>
+                        <td className="px-6 py-4">{currency}{item.price}</td>
                         <td className="px-6 py-4">
                           <input
                             type="number"
@@ -82,7 +84,7 @@ export default function Cart() {
                           />
                         </td>
                         <td className="px-6 py-4 font-semibold">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {currency}{(item.price * item.quantity).toFixed(2)}
                         </td>
                         <td className="px-6 py-4">
                           <button
@@ -113,22 +115,22 @@ export default function Cart() {
               <div className="space-y-3 border-b border-gray-700 pb-4 mb-4">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Subtotal:</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>{currency}{total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Shipping:</span>
-                  <span>$10.00</span>
+                  <span>{currency}10.00</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Tax:</span>
-                  <span>${(total * 0.1).toFixed(2)}</span>
+                  <span>{currency}{(total * 0.1).toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="flex justify-between text-lg font-bold mb-6">
                 <span>Total:</span>
                 <span className="text-green-500">
-                  ${(total + 10 + total * 0.1).toFixed(2)}
+                  {currency}{(total + 10 + total * 0.1).toFixed(2)}
                 </span>
               </div>
 

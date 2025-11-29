@@ -1,5 +1,5 @@
-import { prisma } from '../db/client';
-import { ValidationError } from '../validation/inputs';
+import { prisma } from '../db/client.js';
+import { ValidationError } from '../validation/inputs.js';
 
 // ============================================================================
 // TYPES & INTERFACES

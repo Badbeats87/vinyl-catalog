@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as readline from 'readline';
-import { createRelease, getReleaseById, searchReleases, updateRelease, deleteRelease, countReleases, } from '../services/releases';
-import { createPricingPolicy, getPricingPolicyById, getActivePolicies, countActivePolicies, } from '../services/pricing-policies';
+import { createRelease, getReleaseById, searchReleases, updateRelease, deleteRelease, countReleases, } from '../services/releases.js';
+import { createPricingPolicy, getPricingPolicyById, getActivePolicies, countActivePolicies, } from '../services/pricing-policies.js';
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,

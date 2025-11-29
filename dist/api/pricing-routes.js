@@ -30,19 +30,65 @@ router.get('/policy/active', async (_req, res) => {
 router.post('/policies', async (req, res) => {
     try {
         const { name, description, buyMarketSource, buyMarketStat, buyPercentage, sellMarketSource, sellMarketStat, sellPercentage, applyConditionAdjustment, roundingIncrement, } = req.body;
+        // Validation
+        const errors = [];
+        // Name validation
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+            errors.push('Policy name is required');
+        }
+        else if (name.trim().length > 100) {
+            errors.push('Policy name must not exceed 100 characters');
+        }
+        // Percentage validation
+        const validatedBuyPercentage = parseFloat(buyPercentage);
+        const validatedSellPercentage = parseFloat(sellPercentage);
+        if (isNaN(validatedBuyPercentage) || validatedBuyPercentage <= 0 || validatedBuyPercentage > 5) {
+            errors.push('Buy percentage must be between 0.01 and 5.00');
+        }
+        if (isNaN(validatedSellPercentage) || validatedSellPercentage <= 0 || validatedSellPercentage > 5) {
+            errors.push('Sell percentage must be between 0.01 and 5.00');
+        }
+        // Market source validation
+        const validMarketSources = ['discogs', 'ebay', 'hybrid'];
+        if (buyMarketSource && !validMarketSources.includes(buyMarketSource)) {
+            errors.push('Buy market source must be one of: discogs, ebay, hybrid');
+        }
+        if (sellMarketSource && !validMarketSources.includes(sellMarketSource)) {
+            errors.push('Sell market source must be one of: discogs, ebay, hybrid');
+        }
+        // Market stat validation
+        const validMarketStats = ['low', 'median', 'high'];
+        if (buyMarketStat && !validMarketStats.includes(buyMarketStat)) {
+            errors.push('Buy market stat must be one of: low, median, high');
+        }
+        if (sellMarketStat && !validMarketStats.includes(sellMarketStat)) {
+            errors.push('Sell market stat must be one of: low, median, high');
+        }
+        // Rounding increment validation
+        if (roundingIncrement) {
+            const validatedRoundingIncrement = parseFloat(roundingIncrement);
+            if (isNaN(validatedRoundingIncrement) || validatedRoundingIncrement <= 0) {
+                errors.push('Rounding increment must be a positive number');
+            }
+        }
+        // Return validation errors
+        if (errors.length > 0) {
+            res.status(400).json({ success: false, error: errors.join('; ') });
+            return;
+        }
         const policy = await prisma.pricingPolicy.create({
             data: {
-                name,
+                name: name.trim(),
                 description,
                 scope: 'global',
                 buyMarketSource: buyMarketSource || 'discogs',
                 buyMarketStat: buyMarketStat || 'median',
-                buyPercentage: buyPercentage || 0.55,
+                buyPercentage: validatedBuyPercentage,
                 sellMarketSource: sellMarketSource || 'discogs',
                 sellMarketStat: sellMarketStat || 'median',
-                sellPercentage: sellPercentage || 1.25,
+                sellPercentage: validatedSellPercentage,
                 applyConditionAdjustment: applyConditionAdjustment !== false,
-                roundingIncrement: roundingIncrement || 0.25,
+                roundingIncrement: roundingIncrement ? parseFloat(roundingIncrement) : 0.25,
                 isActive: false,
             },
         });
@@ -57,17 +103,44 @@ router.put('/policies/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { name, description, buyMarketSource, buyMarketStat, buyPercentage, sellMarketSource, sellMarketStat, sellPercentage, applyConditionAdjustment, roundingIncrement, isActive, } = req.body;
+        // Validation
+        const errors = [];
+        // Name validation
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+            errors.push('Policy name is required');
+        }
+        else if (name.trim().length > 100) {
+            errors.push('Policy name must not exceed 100 characters');
+        }
+        // Percentage validation (only if provided)
+        if (buyPercentage !== undefined) {
+            const validatedBuyPercentage = parseFloat(buyPercentage);
+            if (isNaN(validatedBuyPercentage) || validatedBuyPercentage <= 0 || validatedBuyPercentage > 5) {
+                errors.push('Buy percentage must be between 0.01 and 5.00');
+            }
+        }
+        if (sellPercentage !== undefined) {
+            const validatedSellPercentage = parseFloat(sellPercentage);
+            if (isNaN(validatedSellPercentage) || validatedSellPercentage <= 0 || validatedSellPercentage > 5) {
+                errors.push('Sell percentage must be between 0.01 and 5.00');
+            }
+        }
+        // Return validation errors
+        if (errors.length > 0) {
+            res.status(400).json({ success: false, error: errors.join('; ') });
+            return;
+        }
         const policy = await prisma.pricingPolicy.update({
             where: { id },
             data: {
-                name,
+                name: name.trim(),
                 description,
                 buyMarketSource,
                 buyMarketStat,
-                buyPercentage,
+                buyPercentage: buyPercentage !== undefined ? parseFloat(buyPercentage) : undefined,
                 sellMarketSource,
                 sellMarketStat,
-                sellPercentage,
+                sellPercentage: sellPercentage !== undefined ? parseFloat(sellPercentage) : undefined,
                 applyConditionAdjustment,
                 roundingIncrement,
                 isActive,
@@ -143,6 +216,55 @@ router.post('/calculate', async (req, res) => {
             calculatedPrice,
             audit,
         });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Get all condition tiers
+router.get('/conditions', async (_req, res) => {
+    try {
+        const { getConditionTiers } = await import('../api/admin-routes');
+        const result = await getConditionTiers();
+        res.json(result);
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Get condition discounts for a policy
+router.get('/policies/:policyId/discounts', async (req, res) => {
+    try {
+        const { getPolicyDiscounts } = await import('../api/admin-routes');
+        const result = await getPolicyDiscounts(req.params.policyId);
+        res.json(result);
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Set condition discount for a policy
+router.post('/policies/:policyId/discounts/:conditionTierId', async (req, res) => {
+    try {
+        const { buyDiscountPercentage, sellDiscountPercentage, discountPercentage } = req.body;
+        const { setDiscount } = await import('../api/admin-routes');
+        // Support both old single-discount format and new buy/sell format
+        const buyDiscount = buyDiscountPercentage ?? discountPercentage ?? 0;
+        const sellDiscount = sellDiscountPercentage ?? discountPercentage ?? 0;
+        const result = await setDiscount(req.params.policyId, req.params.conditionTierId, buyDiscount, sellDiscount);
+        res.json(result);
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
+    }
+});
+// Bulk set condition discounts for a policy
+router.post('/policies/:policyId/discounts', async (req, res) => {
+    try {
+        const { discounts } = req.body;
+        const { setDiscounts } = await import('../api/admin-routes');
+        const result = await setDiscounts(req.params.policyId, discounts);
+        res.json(result);
     }
     catch (err) {
         res.status(500).json({ success: false, error: String(err) });

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
+import { useCurrency } from '@/lib/currency-context';
 
 interface DiscogsRecord {
   id: string;
@@ -24,6 +25,7 @@ interface DiscogsRecord {
 export default function CreateListing() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { symbol: currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState<'search' | 'details'>('search');
@@ -38,8 +40,9 @@ export default function CreateListing() {
   const [buyPrice, setBuyPrice] = useState<number | null>(null);
   const [sellPrice, setSellPrice] = useState<number | null>(null);
 
-  // Condition
-  const [condition, setCondition] = useState('Very Good');
+  // Conditions (separate for media and sleeve)
+  const [conditionMedia, setConditionMedia] = useState('Very Good');
+  const [conditionSleeve, setConditionSleeve] = useState('Very Good');
 
   useEffect(() => {
     if (!user || user.userType !== 'seller') {
@@ -117,7 +120,8 @@ export default function CreateListing() {
           format: selectedRecord.format,
           catalog: selectedRecord.catalog,
           imageUrl: selectedRecord.imageUrl,
-          condition,
+          conditionMedia,
+          conditionSleeve,
           buyingPrice: buyPrice,
           sellingPrice: sellPrice,
           notes: selectedRecord.notes,
@@ -213,7 +217,7 @@ export default function CreateListing() {
                               <p className="text-xs text-gray-600 mb-3">{record.label} • {record.genre}</p>
                               {record.price && (
                                 <div className="text-sm font-medium text-gray-900">
-                                  We pay: ${(Math.round(record.price * 0.55 * 100) / 100).toFixed(2)}
+                                  We pay: {currency}{(Math.round(record.price * 0.55 * 100) / 100).toFixed(2)}
                                 </div>
                               )}
                             </div>
@@ -277,7 +281,7 @@ export default function CreateListing() {
                   {/* Pricing Display */}
                   <div className="border border-gray-200 rounded-lg p-8 text-center bg-gray-50">
                     <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-2">We Will Pay</p>
-                    <p className="text-4xl font-light text-gray-900 mb-1">${buyPrice?.toFixed(2) || '0.00'}</p>
+                    <p className="text-4xl font-light text-gray-900 mb-1">{currency}{buyPrice?.toFixed(2) || '0.00'}</p>
                     <p className="text-xs text-gray-600">Based on current market lowest price</p>
                   </div>
                 </>
@@ -288,24 +292,50 @@ export default function CreateListing() {
               )}
 
               {/* Condition */}
-              <div className="border border-gray-200 rounded-lg p-8 space-y-4">
+              <div className="border border-gray-200 rounded-lg p-8 space-y-6">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
                   Record Condition
                 </label>
-                <select
-                  value={condition}
-                  onChange={(e) => setCondition(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900 focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                >
-                  <option>Mint</option>
-                  <option>Near Mint</option>
-                  <option>Very Good+</option>
-                  <option>Very Good</option>
-                  <option>Good+</option>
-                  <option>Good</option>
-                  <option>Fair</option>
-                  <option>Poor</option>
-                </select>
+
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Media Condition */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">Vinyl (Media)</label>
+                    <select
+                      value={conditionMedia}
+                      onChange={(e) => setConditionMedia(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900 focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                    >
+                      <option>Mint</option>
+                      <option>Near Mint</option>
+                      <option>Very Good+</option>
+                      <option>Very Good</option>
+                      <option>Good+</option>
+                      <option>Good</option>
+                      <option>Fair</option>
+                      <option>Poor</option>
+                    </select>
+                  </div>
+
+                  {/* Sleeve Condition */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">Sleeve (Cover)</label>
+                    <select
+                      value={conditionSleeve}
+                      onChange={(e) => setConditionSleeve(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900 focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                    >
+                      <option>Mint</option>
+                      <option>Near Mint</option>
+                      <option>Very Good+</option>
+                      <option>Very Good</option>
+                      <option>Good+</option>
+                      <option>Good</option>
+                      <option>Fair</option>
+                      <option>Poor</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* Error */}

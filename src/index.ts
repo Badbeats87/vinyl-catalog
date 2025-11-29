@@ -6,23 +6,24 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createHash } from 'crypto';
 
 dotenv.config();
 
 // Import middleware
-import { authenticate, requireAdmin, requireSeller, requireBuyer, allowImpersonation, AuthenticatedRequest } from './middleware/auth';
+import { authenticate, requireAdmin, requireSeller, requireBuyer, allowImpersonation, AuthenticatedRequest } from './middleware/auth.js';
 
 // Import all route handlers
-import * as authRoutes from './api/auth-routes';
-import * as sellerRoutes from './api/seller-routes';
-import * as adminRoutes from './api/admin-routes';
-import * as buyerRoutes from './api/buyer-routes';
-import * as buyerCheckoutRoutes from './api/buyer-checkout-routes';
+import * as authRoutes from './api/auth-routes.js';
+import * as sellerRoutes from './api/seller-routes.js';
+import * as adminRoutes from './api/admin-routes.js';
+import * as buyerRoutes from './api/buyer-routes.js';
+import * as buyerCheckoutRoutes from './api/buyer-checkout-routes.js';
 
 // Import Router-based routes
-import searchRouter from './api/search-routes';
-import pricingRouter from './api/pricing-routes';
-import analyticsRouter from './api/analytics-routes';
+import searchRouter from './api/search-routes.js';
+import pricingRouter from './api/pricing-routes.js';
+import analyticsRouter from './api/analytics-routes.js';
 
 // Initialize Express app
 const app: Express = express();
@@ -293,9 +294,20 @@ app.post('/api/admin/submissions/counter-offer-response', authenticate, requireA
   }
 });
 
-app.post('/api/admin/submissions/accept', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/admin/submissions/accept', authenticate, requireAdmin, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const response = await adminRoutes.acceptSubmissionAndCreateInventory(req.body.submissionId);
+    const submissionId = req.body.submissionId || req.body.submissionNumber;
+    if (!submissionId) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Either submissionId or submissionNumber is required'
+        }
+      });
+      return;
+    }
+    const response = await adminRoutes.acceptSubmissionAndCreateInventory(submissionId);
     res.status(response.success ? 200 : 400).json(response);
   } catch (error) {
     next(error);
@@ -590,6 +602,91 @@ app.use((err: Error & { statusCode?: number; code?: string }, _req: Request, res
   });
 });
 
+// ============================================================================
+// EBAY WEBHOOKS (Public - No Authentication Required)
+// ============================================================================
+
+/**
+ * eBay Webhook Challenge-Response Validation
+ * eBay sends a GET request with challenge_code to validate the endpoint
+ * We must hash: challengeCode + verificationToken + endpoint URL
+ */
+app.get('/webhooks/ebay/marketplace-deletion', (req: Request, res: Response): void => {
+  try {
+    const challengeCode = req.query.challenge_code as string;
+
+    if (!challengeCode) {
+      // No challenge code = regular health check
+      res.status(200).json({
+        status: 'ok',
+        message: 'eBay webhook endpoint is healthy'
+      });
+      return;
+    }
+
+    const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'your-verification-token-here';
+    const endpoint = 'https://deflationary-sherice-subacademically.ngrok-free.dev/webhooks/ebay/marketplace-deletion';
+
+    // Hash: challengeCode + verificationToken + endpoint
+    const hash = createHash('sha256');
+    hash.update(challengeCode);
+    hash.update(verificationToken);
+    hash.update(endpoint);
+    const challengeResponse = hash.digest('hex');
+
+    console.log('[eBay Webhook] Challenge received, generating response:');
+    console.log('  Challenge Code: ' + challengeCode);
+    console.log('  Challenge Response: ' + challengeResponse);
+
+    // Response must use application/json header
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      challengeResponse: challengeResponse
+    });
+  } catch (error) {
+    console.error('[eBay Webhook] Error processing challenge:', error);
+    res.status(500).json({
+      error: 'Failed to process challenge'
+    });
+  }
+});
+
+/**
+ * eBay Marketplace Account Deletion Notification Endpoint
+ * Handles notifications when seller accounts are deleted from eBay marketplace
+ * Required for eBay production API access compliance
+ */
+app.post('/webhooks/ebay/marketplace-deletion', (req: Request, res: Response): void => {
+  try {
+    // Log the notification
+    const notification = req.body;
+    console.log('[eBay Webhook] Marketplace deletion notification received:');
+    console.log(JSON.stringify(notification, null, 2));
+
+    // Check for signature header (used to verify eBay sent this)
+    const signature = req.headers['x-ebay-signature'] as string;
+    if (signature) {
+      console.log('[eBay Webhook] Signature header present (can be verified with Event Notification SDK)');
+    }
+
+    // eBay expects immediate acknowledgement with 200-204 status codes
+    // Acceptable: 200 OK, 201 Created, 202 Accepted, 204 No Content
+    res.status(200).json({});
+
+    // Handle the deletion asynchronously if needed
+    // (e.g., mark seller account as inactive, archive listings, etc.)
+    if (notification.data?.username || notification.data?.userId) {
+      console.log('[eBay] Account deletion request for user: ' + (notification.data.username || notification.data.userId));
+      console.log('[eBay] Event Date: ' + notification.notification?.eventDate);
+    }
+
+  } catch (error) {
+    console.error('[eBay Webhook] Error processing notification:', error);
+    // Still return 200 OK to acknowledge receipt even on error
+    res.status(200).json({});
+  }
+});
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
@@ -620,7 +717,8 @@ app.listen(PORT, () => {
   ├─ /api/seller/*          (Seller submission & catalog)
   ├─ /api/admin/*           (Admin intake & inventory)
   ├─ /api/buyer/*           (Buyer storefront & browse)
-  └─ /api/buyer/cart/*      (Shopping cart & checkout)
+  ├─ /api/buyer/cart/*      (Shopping cart & checkout)
+  └─ /webhooks/ebay/*       (eBay marketplace notifications)
 
   Ready to handle requests! 🎵
 

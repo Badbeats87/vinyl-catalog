@@ -6,7 +6,7 @@
  * Actual API integration with Discogs/eBay would be implemented in a separate module
  * and called from this scheduler.
  */
-import { getReleasesNeedingMarketData, batchUpdateMarketSnapshots } from '../services/market-data-ingestion';
+import { getReleasesNeedingMarketData, batchUpdateMarketSnapshots } from '../services/market-data-ingestion.js';
 let jobId = 0;
 let isRunning = false;
 let schedulerInterval = null;

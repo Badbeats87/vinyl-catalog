@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { prisma } from '../../db/client';
+import { prisma } from '../../db/client.js';
 import {
   searchReleasesCatalog,
   formatSearchResults,
@@ -14,7 +14,7 @@ import {
   getSubmissionsByEmail,
   getConditionTiers,
   QuoteItem,
-} from '../seller-submissions';
+} from '../seller-submissions.js';
 
 // Mock email service to avoid sending actual emails during tests
 vi.mock('../email', () => ({

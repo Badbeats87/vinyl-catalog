@@ -1,4 +1,4 @@
-import { prisma } from '../db/client';
+import { prisma } from '../db/client.js';
 import type { MarketSnapshot } from '@prisma/client';
 
 export interface MarketDataRecord {

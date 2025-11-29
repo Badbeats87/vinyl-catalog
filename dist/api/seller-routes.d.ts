@@ -2,7 +2,7 @@
  * Seller API Routes
  * Endpoints for seller submission workflows: search, quote, and submission
  */
-import { QuoteItem, SearchItem, QuoteResponse, SubmissionResponse, SubmissionDetail } from '../services/seller-submissions';
+import { QuoteItem, SearchItem, QuoteResponse, SubmissionResponse, SubmissionDetail } from '../services/seller-submissions.js';
 /**
  * Standard API response wrapper
  */
@@ -65,7 +65,9 @@ export interface CreateListingRequest {
     format: string;
     catalog?: string;
     imageUrl?: string;
-    condition: string;
+    condition?: string;
+    conditionMedia?: string;
+    conditionSleeve?: string;
     buyingPrice: number;
     sellingPrice: number;
     notes?: string;

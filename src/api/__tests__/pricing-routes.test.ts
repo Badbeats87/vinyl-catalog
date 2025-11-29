@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '../../db/client';
-import { getPricingQuote, getAuditLogsForRelease, getAuditLogsForPolicy } from '../pricing-routes';
+import { prisma } from '../../db/client.js';
+import { getPricingQuote, getAuditLogsForRelease, getAuditLogsForPolicy } from '../pricing-routes.js';
 import type { Release, PricingPolicy } from '@prisma/client';
 
 describe('Pricing API Routes', () => {

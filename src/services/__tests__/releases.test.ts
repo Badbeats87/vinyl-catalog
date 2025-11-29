@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import * as releaseService from '../releases';
+import * as releaseService from '../releases.js';
 
 const prisma = new PrismaClient();
 

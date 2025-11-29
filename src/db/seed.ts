@@ -1,4 +1,4 @@
-import { prisma, disconnectPrisma } from './client';
+import { prisma, disconnectPrisma } from './client.js';
 
 async function main() {
   console.log('Starting database seed...');

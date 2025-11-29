@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
+import { useCurrency } from '@/lib/currency-context';
 
 interface Product {
   id: string;
@@ -17,6 +18,7 @@ interface Product {
 export default function Storefront() {
   const { user, logout } = useAuthStore();
   const { items: cartItems } = useCartStore();
+  const { symbol: currency } = useCurrency();
   const router = useRouter();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -169,7 +171,7 @@ export default function Storefront() {
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <div className="text-2xl font-bold text-green-500">${product.price.toFixed(2)}</div>
+                    <div className="text-2xl font-bold text-green-500">{currency}{product.price.toFixed(2)}</div>
                     <button
                       onClick={() => handleAddToCart(product)}
                       className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"

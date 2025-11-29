@@ -25,6 +25,7 @@ export interface CalculationBreakdown {
     conditionAdjustment: number;
     mediaWeight: number;
     sleeveWeight: number;
+    policyConditionDiscount: number | null;
     priceBeforeRounding: number;
     roundingIncrement: number;
     finalPrice: number;

@@ -12,6 +12,7 @@ export interface CreateInventoryLotInput {
     quantity?: number;
     channel?: string;
     internalNotes?: string;
+    status?: string;
 }
 /**
  * Create a new inventory lot
@@ -50,6 +51,8 @@ export declare function updateInventoryLot(lotId: string, updates: {
     status?: string;
     internalNotes?: string;
     channel?: string;
+    conditionMedia?: string;
+    conditionSleeve?: string;
 }): Promise<void>;
 /**
  * Get inventory metrics

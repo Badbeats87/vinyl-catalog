@@ -1,5 +1,5 @@
 import { PricingPolicy } from '@prisma/client';
-import { prisma } from '../db/client';
+import { prisma } from '../db/client.js';
 import {
   ValidationError,
   validatePolicyName,
@@ -9,7 +9,7 @@ import {
   validateWeightSum,
   validatePrice,
   validateDays,
-} from '../validation/inputs';
+} from '../validation/inputs.js';
 
 export interface CreatePricingPolicyInput {
   name: string;

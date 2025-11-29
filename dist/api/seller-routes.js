@@ -3,8 +3,8 @@
  * Endpoints for seller submission workflows: search, quote, and submission
  */
 import { PrismaClient } from '@prisma/client';
-import { searchReleasesCatalog, formatSearchResults, generateQuotesForItems, createSellerSubmission, getSubmissionByNumber, getSubmissionsByEmail, getConditionTiers, } from '../services/seller-submissions';
-import { ValidationError } from '../validation/inputs';
+import { searchReleasesCatalog, formatSearchResults, generateQuotesForItems, createSellerSubmission, getSubmissionByNumber, getSubmissionsByEmail, getConditionTiers, } from '../services/seller-submissions.js';
+import { ValidationError } from '../validation/inputs.js';
 export async function searchCatalog(request) {
     try {
         if (!request.query) {
@@ -278,6 +278,9 @@ export async function createListing(request, userId) {
             }
             // Create seller submission
             const submissionNumber = `SUB-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+            // Use separate conditions if provided, otherwise fall back to single condition (backward compat)
+            const mediaCondition = request.conditionMedia || request.condition || 'Very Good';
+            const sleeveCondition = request.conditionSleeve || request.condition || 'Very Good';
             const submission = await prisma.sellerSubmission.create({
                 data: {
                     submissionNumber,
@@ -289,8 +292,8 @@ export async function createListing(request, userId) {
                         create: {
                             releaseId: release.id,
                             quantity: 1,
-                            sellerConditionMedia: request.condition,
-                            sellerConditionSleeve: request.condition,
+                            sellerConditionMedia: mediaCondition,
+                            sellerConditionSleeve: sleeveCondition,
                             autoOfferPrice: request.buyingPrice,
                             itemNotes: request.notes,
                         },

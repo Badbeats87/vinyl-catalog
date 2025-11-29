@@ -1,4 +1,4 @@
-import { prisma } from '../db/client';
+import { prisma } from '../db/client.js';
 /**
  * Update market snapshot data for a single record
  * Creates or updates the market snapshot based on release ID and source

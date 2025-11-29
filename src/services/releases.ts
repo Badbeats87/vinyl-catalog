@@ -1,5 +1,5 @@
 import { Release } from '@prisma/client';
-import { prisma } from '../db/client';
+import { prisma } from '../db/client.js';
 import {
   validateReleaseTitle,
   validateArtistName,
@@ -8,7 +8,7 @@ import {
   validateUrl,
   validateSearchQuery,
   validateLimit,
-} from '../validation/inputs';
+} from '../validation/inputs.js';
 
 export interface CreateReleaseInput {
   title: string;

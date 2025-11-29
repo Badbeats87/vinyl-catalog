@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import * as policyService from '../pricing-policies';
+import * as policyService from '../pricing-policies.js';
 
 const prisma = new PrismaClient();
 

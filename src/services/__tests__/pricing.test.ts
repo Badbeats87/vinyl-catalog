@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { prisma } from '../../db/client';
-import { calculatePricing, getFullPricingQuote, getPricingAuditLogs } from '../pricing';
+import { prisma } from '../../db/client.js';
+import { calculatePricing, getFullPricingQuote, getPricingAuditLogs } from '../pricing.js';
 import type { Release, PricingPolicy, MarketSnapshot, ConditionTier } from '@prisma/client';
 
 describe('Pricing Service', () => {

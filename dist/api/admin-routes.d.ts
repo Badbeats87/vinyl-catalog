@@ -106,6 +106,8 @@ export interface UpdateInventoryInput {
     status?: string;
     internalNotes?: string;
     channel?: string;
+    conditionMedia?: string;
+    conditionSleeve?: string;
 }
 /**
  * Update inventory lot
@@ -150,4 +152,24 @@ export declare function acceptSubmissionAndCreateInventory(submissionId: string)
  * Reject submission
  */
 export declare function rejectSubmission(submissionId: string): Promise<ApiResponse<null>>;
+/**
+ * Get all condition tiers for policy configuration
+ */
+export declare function getConditionTiers(): Promise<ApiResponse<any>>;
+/**
+ * Get condition discounts for a policy
+ */
+export declare function getPolicyDiscounts(policyId: string): Promise<ApiResponse<any>>;
+/**
+ * Set condition discount for a policy
+ */
+export declare function setDiscount(policyId: string, conditionTierId: string, buyDiscountPercentage: number, sellDiscountPercentage: number): Promise<ApiResponse<any>>;
+/**
+ * Bulk set condition discounts for a policy
+ */
+export declare function setDiscounts(policyId: string, discounts: Array<{
+    conditionTierId: string;
+    buyDiscountPercentage: number;
+    sellDiscountPercentage: number;
+}>): Promise<ApiResponse<any>>;
 //# sourceMappingURL=admin-routes.d.ts.map

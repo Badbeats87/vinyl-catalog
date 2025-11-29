@@ -7,7 +7,7 @@
  * and called from this scheduler.
  */
 
-import { getReleasesNeedingMarketData, batchUpdateMarketSnapshots, type MarketDataRecord } from '../services/market-data-ingestion';
+import { getReleasesNeedingMarketData, batchUpdateMarketSnapshots, type MarketDataRecord } from '../services/market-data-ingestion.js';
 
 export interface SchedulerConfig {
   intervalMinutes: number;
