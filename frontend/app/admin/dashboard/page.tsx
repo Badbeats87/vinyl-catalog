@@ -774,8 +774,30 @@ export default function AdminDashboard() {
                                         body: JSON.stringify({ submissionId: submission.id }),
                                       });
                                       if (res.ok) {
+                                        const data = await res.json();
                                         handleApprove(submission.id);
-                                        alert('Submission accepted and inventory created!');
+                                        // Refetch inventory to show newly created lots
+                                        const inventoryRes = await fetch(`/api/admin/inventory?limit=50&offset=0`, {
+                                          headers: {
+                                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                          },
+                                        });
+                                        const inventoryData = await inventoryRes.json();
+                                        if (inventoryData.success) {
+                                          setInventory(inventoryData.data?.lots || []);
+                                        }
+                                        // Refetch metrics to reflect new inventory
+                                        const metricsRes = await fetch('/api/admin/inventory/metrics', {
+                                          headers: {
+                                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                          },
+                                        });
+                                        const metricsData = await metricsRes.json();
+                                        if (metricsData.success) {
+                                          setInventoryMetrics(metricsData.data);
+                                        }
+                                        const lotCount = data.data?.createdLots?.length || 0;
+                                        alert(`Submission accepted! Created ${lotCount} inventory lot(s). Check the Inventory tab to review.`);
                                       } else {
                                         alert('Failed to accept submission');
                                       }
