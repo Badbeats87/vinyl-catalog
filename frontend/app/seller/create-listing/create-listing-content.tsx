@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useCurrency } from '@/lib/currency-context';
+import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
 
 interface DiscogsRecord {
   id: string;
@@ -75,6 +76,61 @@ export default function CreateListingContent() {
     setSearchQuery(value);
     const error = validateSearchQuery(value);
     setSearchError(error || '');
+  };
+
+  // Discogs autocomplete search function
+  const handleDiscogsAutocomplete = useCallback(async (query: string): Promise<SearchSuggestion[]> => {
+    try {
+      const res = await fetch('/api/search/discogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.results) {
+        return data.results.slice(0, 8).map((result: any) => ({
+          id: result.id,
+          title: result.title,
+          artist: result.artist,
+          year: result.year,
+          genre: result.genre,
+          label: result.label,
+          imageUrl: result.imageUrl,
+        }));
+      }
+      return [];
+    } catch (err) {
+      console.error('Discogs search error:', err);
+      return [];
+    }
+  }, []);
+
+  // Handle Discogs result selection
+  const handleDiscogsSelect = (suggestion: SearchSuggestion) => {
+    // Find the full record object from search results
+    const fullRecord = searchResults.find(r => r.id === suggestion.id);
+    if (fullRecord) {
+      handleSelectRecord(fullRecord);
+    } else {
+      // If not found in current results, reconstruct from suggestion
+      const record: DiscogsRecord = {
+        id: suggestion.id,
+        discogsId: parseInt(suggestion.id) || 0,
+        title: suggestion.title,
+        artist: suggestion.artist,
+        year: suggestion.year || new Date().getFullYear(),
+        label: suggestion.label || '',
+        price: null,
+        imageUrl: suggestion.imageUrl || '',
+        genre: suggestion.genre || '',
+        format: 'Vinyl',
+        rpm: 33,
+        catalog: '',
+        notes: '',
+      };
+      handleSelectRecord(record);
+    }
   };
 
   useEffect(() => {
@@ -219,26 +275,36 @@ export default function CreateListingContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
-                    Search <span className="text-red-600">*</span>
+                    Search Discogs <span className="text-red-600">*</span>
                   </label>
+                  <div className="mb-3">
+                    <SearchAutocomplete
+                      placeholder="Artist, album, or catalog number"
+                      onSearch={handleDiscogsAutocomplete}
+                      onSelect={handleDiscogsSelect}
+                      onSearchChange={handleSearchQueryChange}
+                      debounceMs={500}
+                      minChars={2}
+                      isLoading={searching}
+                    />
+                  </div>
+                  {searchError && (
+                    <p className="text-red-600 text-sm mb-3">{searchError}</p>
+                  )}
+                  <p className="text-sm text-gray-600 mb-4">Or use the manual search below for advanced options</p>
                   <div className="flex gap-3">
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={handleSearchQueryChange}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                        placeholder="Artist, album, or catalog number"
-                        className={`w-full px-4 py-3 border rounded text-gray-900 placeholder-gray-500 transition-all focus:ring-1 focus:ring-gray-900 ${
-                          searchError
-                            ? 'border-red-400 focus:border-red-600'
-                            : 'border-gray-300 hover:border-gray-400 focus:border-gray-900'
-                        }`}
-                      />
-                      {searchError && (
-                        <p className="text-red-600 text-sm mt-1">{searchError}</p>
-                      )}
-                    </div>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={handleSearchQueryChange}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder="Artist, album, or catalog number"
+                      className={`flex-1 px-4 py-3 border rounded text-gray-900 placeholder-gray-500 transition-all focus:ring-1 focus:ring-gray-900 ${
+                        searchError
+                          ? 'border-red-400 focus:border-red-600'
+                          : 'border-gray-300 hover:border-gray-400 focus:border-gray-900'
+                      }`}
+                    />
                     <button
                       onClick={handleSearch}
                       disabled={searching || !searchQuery.trim()}

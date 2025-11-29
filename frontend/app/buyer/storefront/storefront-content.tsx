@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/lib/currency-context';
 import { useToast } from '@/components/Toast';
 import Pagination from '@/components/Pagination';
+import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
 
 interface Product {
   id: string;
@@ -45,6 +46,8 @@ export default function StorefrontContent() {
     hasPrevPage: false,
   });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const fetchInventory = async (page: number = 1) => {
     try {
@@ -116,6 +119,39 @@ export default function StorefrontContent() {
     }
   };
 
+  // Search function for autocomplete
+  const handleSearchAutocomplete = useCallback(async (query: string): Promise<SearchSuggestion[]> => {
+    try {
+      const res = await fetch(`/api/buyer/search?q=${encodeURIComponent(query)}&limit=8`);
+      const data = await res.json();
+
+      if (data.groups && Array.isArray(data.groups)) {
+        // Convert grouped inventory to suggestions
+        return data.groups.map((group: any) => ({
+          id: group.release.id,
+          title: group.release.title,
+          artist: group.release.artist,
+          year: group.release.year,
+          genre: group.release.genre,
+          label: group.release.label,
+          imageUrl: group.release.imageUrl,
+        }));
+      }
+      return [];
+    } catch (err) {
+      console.error('Search error:', err);
+      return [];
+    }
+  }, []);
+
+  // Handle search suggestion selection
+  const handleSearchSelect = (suggestion: SearchSuggestion) => {
+    setSearchQuery(suggestion.title);
+    addToast(`Searching for "${suggestion.artist} - ${suggestion.title}"`, 'info');
+    // Fetch inventory for this search
+    fetchInventory(1);
+  };
+
   useEffect(() => {
     if (!user || user.userType !== 'buyer') {
       router.push('/');
@@ -178,15 +214,16 @@ export default function StorefrontContent() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Search & Filter */}
-        <div className="mb-8 flex gap-4">
-          <input
-            type="text"
+        <div className="mb-8 flex-1">
+          <SearchAutocomplete
             placeholder="Search albums, artists..."
-            className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+            onSearch={handleSearchAutocomplete}
+            onSelect={handleSearchSelect}
+            onSearchChange={setSearchQuery}
+            debounceMs={400}
+            minChars={2}
+            isLoading={isSearching}
           />
-          <button className="bg-green-600 text-white px-6 py-2 rounded font-semibold hover:bg-green-700 transition">
-            Search
-          </button>
         </div>
 
         {/* Loading State */}
