@@ -1099,6 +1099,73 @@ app.get('/api/admin/activity-log', authenticate, requireAdmin, async (req: Reque
 });
 
 // ============================================================================
+// BUYER LOYALTY PROGRAM
+// ============================================================================
+
+app.get('/api/buyer/loyalty', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+
+    const loyaltyService = require('../services/loyalty.js');
+    const { account, transactions } = await loyaltyService.getLoyaltyAccountWithHistory(buyerId, 20);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        account,
+        recentTransactions: transactions,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/buyer/loyalty/redeem', authenticate, requireBuyer, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const buyerId = (req as any).userId;
+    const { pointsToRedeem } = req.body;
+
+    if (!pointsToRedeem || pointsToRedeem <= 0) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Points to redeem must be greater than 0',
+        },
+      });
+      return;
+    }
+
+    const loyaltyService = require('../services/loyalty.js');
+    const result = await loyaltyService.redeemPoints(buyerId, pointsToRedeem);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        dollarValue: result.dollarValue,
+        transaction: result.transaction,
+        account: result.account,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Insufficient points for redemption') {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_POINTS',
+            message: 'You do not have enough points to redeem',
+          },
+        });
+        return;
+      }
+    }
+    next(error);
+  }
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 
