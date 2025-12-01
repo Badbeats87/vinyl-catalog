@@ -331,6 +331,7 @@ model Buyer {
   orders          BuyerOrder[]
   wishlist        Wishlist?
   reviews         Review[]
+  loyaltyAccount  LoyaltyAccount?
 
   @@index([email])
 }
@@ -719,6 +720,56 @@ model AdminActivityLog {
   @@index([adminId])
   @@index([action])
   @@index([entityType])
+  @@index([createdAt])
+}
+
+// Loyalty program account for buyers
+model LoyaltyAccount {
+  id              String   @id @default(cuid())
+  buyerId         String   @unique
+  buyer           Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  // Points and tier
+  points          Int      @default(0)
+  tier            String   @db.VarChar(50) @default("bronze") // bronze, silver, gold
+
+  // Lifetime spending for tier calculation
+  lifetimeSpent   Float    @default(0)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  transactions    LoyaltyTransaction[]
+
+  @@index([buyerId])
+  @@index([tier])
+  @@index([points])
+}
+
+// Individual loyalty transaction (points earned/redeemed)
+model LoyaltyTransaction {
+  id              String   @id @default(cuid())
+  accountId       String
+  account         LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Points change (positive for earned, negative for redeemed)
+  points          Int
+
+  // Transaction type
+  type            String   @db.VarChar(50) // "purchase", "review", "referral", "redemption", "bonus"
+
+  // Description for user
+  description     String   @db.Text
+
+  // Optional reference to order for purchase transactions
+  orderId         String?  @db.VarChar(255)
+
+  createdAt       DateTime @default(now())
+
+  @@index([accountId])
+  @@index([type])
   @@index([createdAt])
 }
 
