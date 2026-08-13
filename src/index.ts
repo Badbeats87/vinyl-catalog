@@ -13,6 +13,9 @@ dotenv.config();
 // Import middleware
 import { authenticate, requireAdmin, requireSeller, requireBuyer, allowImpersonation, AuthenticatedRequest } from './middleware/auth.js';
 
+// Import error handling
+import { createErrorResponse, ErrorResponse } from './services/error-handler.js';
+
 // Import all route handlers
 import * as authRoutes from './api/auth-routes.js';
 import * as sellerRoutes from './api/seller-routes.js';
@@ -1169,20 +1172,65 @@ app.post('/api/buyer/loyalty/redeem', authenticate, requireBuyer, async (req: Re
 // ERROR HANDLING
 // ============================================================================
 
-app.use((err: Error & { statusCode?: number; code?: string }, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('Error:', err);
+/**
+ * Global Error Handler Middleware
+ * Catches all errors thrown from routes and services
+ * Converts them to structured error responses with suggestions and documentation links
+ */
+app.use((err: any, _req: Request, res: Response, _next: NextFunction): void => {
+  console.error('[Error Handler]', err);
+
+  // If error is already a structured ErrorResponse, send it directly
+  if (err?.success === false && err?.error?.code) {
+    const errorResponse = err as ErrorResponse;
+    res.status(err.statusCode || 400).json(errorResponse);
+    return;
+  }
+
+  // If error is from the service layer with a structured format
+  if (err?.error?.code) {
+    res.status(err.statusCode || 400).json(err);
+    return;
+  }
+
+  // Map common error types to structured responses
+  let response: ErrorResponse;
+
+  if (err instanceof SyntaxError && 'body' in err) {
+    // JSON parsing error
+    response = createErrorResponse(
+      'VALIDATION_ERROR',
+      'Invalid JSON in request body'
+    );
+    res.status(400).json(response);
+    return;
+  }
+
+  if (err.message?.includes('ValidationError')) {
+    response = createErrorResponse(
+      'VALIDATION_ERROR',
+      err.message || 'Validation failed'
+    );
+    res.status(400).json(response);
+    return;
+  }
+
+  // Default to internal error
+  response = createErrorResponse(
+    'INTERNAL_ERROR',
+    'An unexpected error occurred. Our team has been notified.'
+  );
 
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
 
-  res.status(statusCode).json({
-    success: false,
-    error: {
-      code: err.code || 'INTERNAL_ERROR',
-      message,
-      ...(process.env.NODE_ENV === 'development' && { details: err.stack }),
-    },
-  });
+  if (process.env.NODE_ENV === 'development') {
+    response.error.details = {
+      message: err.message,
+      stack: err.stack,
+    };
+  }
+
+  res.status(statusCode).json(response);
 });
 
 // ============================================================================

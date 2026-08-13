@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useCurrency } from '@/lib/currency-context';
 import SearchAutocomplete, { SearchSuggestion } from '@/components/SearchAutocomplete';
+import { ErrorDisplay, ErrorInfo } from '@/components/ErrorDisplay';
 
 interface DiscogsRecord {
   id: string;
@@ -31,6 +32,9 @@ export default function CreateListingContent() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<'search' | 'details'>('search');
 
+  // Error state - can be ErrorInfo with structured data or simple string
+  const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<DiscogsRecord[]>([]);
@@ -54,6 +58,27 @@ export default function CreateListingContent() {
     buyPrice?: string;
     sellPrice?: string;
   }>({});
+
+  /**
+   * Parse API error response into structured ErrorInfo
+   */
+  const parseErrorResponse = (data: any): ErrorInfo => {
+    // If error is already structured from backend
+    if (data?.error?.code) {
+      return {
+        code: data.error.code,
+        message: data.error.message,
+        suggestion: data.error.suggestion,
+        docsUrl: data.error.docsUrl,
+        details: data.error.details,
+      };
+    }
+
+    // Fallback for unstructured errors
+    return {
+      message: data?.error?.message || data?.error || 'An error occurred',
+    };
+  };
 
   // Validate search query
   const validateSearchQuery = (value: string): string | undefined => {
@@ -146,7 +171,7 @@ export default function CreateListingContent() {
       return;
     }
     setSearching(true);
-    setError('');
+    setErrorInfo(null);
     setSearchError('');
     try {
       const res = await fetch('/api/search/discogs', {
@@ -158,15 +183,20 @@ export default function CreateListingContent() {
       if (data.success && data.results) {
         setSearchResults(data.results);
         if (data.results.length === 0) {
-          setError('No records found on Discogs. You can add it manually below.');
+          setErrorInfo({
+            message: 'No records found on Discogs',
+            suggestion: 'Try a different search term or search with fewer keywords. You can also add the record manually.',
+          });
         }
       } else {
-        const errorMsg = typeof data.error === 'string' ? data.error : data.error?.message || 'Search failed';
-        setError(errorMsg);
+        setErrorInfo(parseErrorResponse(data));
       }
     } catch (err) {
       console.error('Search error:', err);
-      setError('Failed to search Discogs');
+      setErrorInfo({
+        message: 'Failed to search Discogs',
+        suggestion: 'Please check your internet connection and try again.',
+      });
     } finally {
       setSearching(false);
     }
@@ -186,7 +216,9 @@ export default function CreateListingContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRecord) {
-      setError('Please select a record');
+      setErrorInfo({
+        message: 'Please select a record',
+      });
       return;
     }
 
@@ -202,11 +234,14 @@ export default function CreateListingContent() {
         buyPrice: buyError,
         sellPrice: sellError,
       });
-      setError('Please fix the pricing errors');
+      setErrorInfo({
+        message: 'Please fix the pricing errors below',
+        suggestion: 'All prices must be positive numbers greater than $0.01.',
+      });
       return;
     }
 
-    setError('');
+    setErrorInfo(null);
     setLoading(true);
 
     try {
@@ -238,12 +273,14 @@ export default function CreateListingContent() {
       if (data.success) {
         router.push('/seller/dashboard');
       } else {
-        const errorMsg = typeof data.error === 'string' ? data.error : data.error?.message || 'Failed to create listing';
-        setError(errorMsg);
+        setErrorInfo(parseErrorResponse(data));
       }
     } catch (err: any) {
-      const errorMsg = typeof err === 'string' ? err : err?.message || 'Failed to create listing';
-      setError(errorMsg);
+      console.error('Submission error:', err);
+      setErrorInfo({
+        message: 'Failed to create listing',
+        suggestion: 'Please check your connection and try again. If the problem persists, contact support.',
+      });
     } finally {
       setLoading(false);
     }
@@ -315,9 +352,14 @@ export default function CreateListingContent() {
                   </div>
                 </div>
 
-                {error && (
-                  <div className="border border-red-200 rounded-lg p-4 bg-red-50 text-red-700 text-sm">
-                    {error}
+                {errorInfo && (
+                  <div className="mb-4">
+                    <ErrorDisplay
+                      error={errorInfo}
+                      variant="alert"
+                      onDismiss={() => setErrorInfo(null)}
+                      showDetails={process.env.NODE_ENV === 'development'}
+                    />
                   </div>
                 )}
 
@@ -504,9 +546,9 @@ export default function CreateListingContent() {
                     >
                       <option>Mint</option>
                       <option>Near Mint</option>
-                      <option>Very Good+</option>
+                      <option>Very Good Plus</option>
                       <option>Very Good</option>
-                      <option>Good+</option>
+                      <option>Good Plus</option>
                       <option>Good</option>
                       <option>Fair</option>
                       <option>Poor</option>
@@ -523,9 +565,9 @@ export default function CreateListingContent() {
                     >
                       <option>Mint</option>
                       <option>Near Mint</option>
-                      <option>Very Good+</option>
+                      <option>Very Good Plus</option>
                       <option>Very Good</option>
-                      <option>Good+</option>
+                      <option>Good Plus</option>
                       <option>Good</option>
                       <option>Fair</option>
                       <option>Poor</option>
@@ -535,9 +577,14 @@ export default function CreateListingContent() {
               </div>
 
               {/* Error */}
-              {error && (
-                <div className="border border-red-200 rounded-lg p-4 bg-red-50 text-red-700 text-sm">
-                  {error}
+              {errorInfo && (
+                <div className="mb-4">
+                  <ErrorDisplay
+                    error={errorInfo}
+                    variant="alert"
+                    onDismiss={() => setErrorInfo(null)}
+                    showDetails={process.env.NODE_ENV === 'development'}
+                  />
                 </div>
               )}
 

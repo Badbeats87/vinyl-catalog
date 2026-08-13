@@ -5,8 +5,9 @@
 import { prisma } from '../db/client.js';
 import { getFullPricingQuote } from './pricing.js';
 import { getPolicyForRelease } from './pricing-policies.js';
-import { validateSearchQuery, validateLimit, ValidationError } from '../validation/inputs.js';
+import { validateSearchQuery, validateLimit } from '../validation/inputs.js';
 import { sendSubmissionConfirmation } from './email.js';
+import { AppError } from './error-handler.js';
 /**
  * Levenshtein distance algorithm for fuzzy matching
  * Returns similarity score between 0 and 1 (1 = exact match)
@@ -128,10 +129,58 @@ export function formatSearchResults(results) {
     }));
 }
 /**
+ * Valid condition grades for vinyl records
+ */
+const VALID_CONDITIONS = [
+    'Mint',
+    'Near Mint',
+    'Very Good Plus',
+    'Very Good',
+    'Good Plus',
+    'Good',
+    'Fair',
+    'Poor',
+];
+/**
+ * Validate condition grade
+ */
+function validateCondition(condition) {
+    return VALID_CONDITIONS.includes(condition);
+}
+/**
+ * Validate quantity
+ */
+function validateQuantity(quantity) {
+    if (!Number.isInteger(quantity) || quantity < 1) {
+        return 'Quantity must be a positive whole number';
+    }
+    if (quantity > 1000) {
+        return 'Quantity cannot exceed 1000 items per submission';
+    }
+    return null;
+}
+/**
  * Generate quote for selected items with conditions
  */
 export async function generateQuotesForItems(items) {
     const quotes = [];
+    const invalidItems = [];
+    // Pre-validate all items before processing
+    for (const item of items) {
+        if (!validateCondition(item.conditionMedia)) {
+            invalidItems.push(`Invalid media condition for ${item.releaseId}: ${item.conditionMedia}`);
+        }
+        if (!validateCondition(item.conditionSleeve)) {
+            invalidItems.push(`Invalid sleeve condition for ${item.releaseId}: ${item.conditionSleeve}`);
+        }
+        const quantityError = validateQuantity(item.quantity);
+        if (quantityError) {
+            invalidItems.push(`${item.releaseId}: ${quantityError}`);
+        }
+    }
+    if (invalidItems.length > 0) {
+        throw AppError.submissionInvalidItems(items.length, invalidItems);
+    }
     for (const item of items) {
         try {
             // Validate release exists
@@ -139,12 +188,12 @@ export async function generateQuotesForItems(items) {
                 where: { id: item.releaseId },
             });
             if (!release) {
-                throw new Error(`Release not found: ${item.releaseId}`);
+                throw AppError.submissionItemNotFound(item.releaseId);
             }
             // Get applicable policy
             const policy = await getPolicyForRelease(item.releaseId);
             if (!policy) {
-                throw new Error(`No pricing policy found for release ${item.releaseId}`);
+                throw AppError.submissionPolicyMissing(item.releaseId, release.title);
             }
             // Calculate pricing
             const quote = await getFullPricingQuote(item.releaseId, policy, item.conditionMedia, item.conditionSleeve);
@@ -160,7 +209,12 @@ export async function generateQuotesForItems(items) {
             });
         }
         catch (error) {
-            throw new Error(`Failed to generate quote for ${item.releaseId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // If error is already a structured error response, re-throw it
+            if (error && typeof error === 'object' && 'error' in error && 'success' in error) {
+                throw error;
+            }
+            // Otherwise wrap in submission quote failed error
+            throw AppError.submissionQuoteFailed(item.releaseId, error instanceof Error ? error.message : 'Unknown error');
         }
     }
     return quotes;
@@ -170,12 +224,12 @@ export async function generateQuotesForItems(items) {
  */
 export async function createSellerSubmission(input) {
     if (!input.sellerConsent) {
-        throw new ValidationError('Seller must consent to notifications');
+        throw AppError.validation('sellerConsent', 'You must consent to receive notifications about your submission');
     }
     if (!input.items || input.items.length === 0) {
-        throw new ValidationError('Submission must include at least one item');
+        throw AppError.submissionNoItems();
     }
-    // Generate quotes for all items
+    // Generate quotes for all items (may throw detailed error if items are invalid)
     const quotes = await generateQuotesForItems(input.items);
     const totalPayout = quotes.reduce((sum, q) => sum + q.totalOffer, 0);
     // Generate unique submission number
